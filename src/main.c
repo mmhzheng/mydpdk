@@ -35,6 +35,9 @@
 #include <rte_random.h>
 #include <rte_debug.h>
 #include <rte_ether.h>
+#include <rte_ip.h>
+#include <rte_tcp.h>
+#include <rte_udp.h>
 #include <rte_ethdev.h>
 #include <rte_mempool.h>
 #include <rte_mbuf.h>
@@ -53,6 +56,8 @@ static int promiscuous_on;
 #define MAX_PKT_BURST 32
 #define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
 #define MEMPOOL_CACHE_SIZE 256
+
+#define	DROP_PORT ((uint16_t)-1)
 
 /*
  * Configurable number of RX/TX ring descriptors
@@ -179,7 +184,69 @@ l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_portid)
 	rte_ether_addr_copy(&l2fwd_ports_eth_addr[dest_portid], &eth->src_addr);
 }
 
-/* Simple forward. 8< */
+static void
+parse_packets(struct rte_mbuf *m)
+{
+	struct rte_ether_hdr *eth_hdr;
+	uint32_t packet_type = RTE_PTYPE_UNKNOWN;
+	uint16_t ether_type;
+	void *l3;
+	void *l4;
+	int hdr_len;
+	struct rte_ipv4_hdr *ipv4_hdr;
+	struct rte_tcp_hdr *tcp_hdr;
+	struct rte_udp_hdr *udp_hdr;
+	
+	uint32_t src_ip;
+	uint32_t dst_ip;
+	uint16_t src_port;
+	uint16_t dst_port;
+	uint8_t  protocol;
+
+	eth_hdr = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
+	// Note that the field is big ending (be).
+	ether_type = eth_hdr->ether_type; 
+	// Move the pointer.
+	l3 = (uint8_t *)eth_hdr + sizeof(struct rte_ether_hdr);
+	if ( ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4) ) {
+		ipv4_hdr = (struct rte_ipv4_hdr *)l3;
+		hdr_len = rte_ipv4_hdr_len(ipv4_hdr);
+		src_ip = ipv4_hdr->src_addr;
+		dst_ip = ipv4_hdr->dst_addr;
+		if ( hdr_len == sizeof(struct rte_ipv4_hdr) ){
+			packet_type |= RTE_PTYPE_L3_IPV4;
+			l4 = (uint8_t *)ipv4_hdr + hdr_len;
+			protocol = ipv4_hdr->next_proto_id;
+			if ( protocol == IPPROTO_TCP ){
+				packet_type |= RTE_PTYPE_L4_TCP;
+				tcp_hdr = (struct rte_tcp_hdr *) l4;
+				src_port = tcp_hdr->src_port;
+				dst_port = tcp_hdr->dst_port;
+			}
+			else if ( protocol == IPPROTO_UDP )
+			{
+				packet_type |= RTE_PTYPE_L4_UDP;
+				udp_hdr = (struct rte_udp_hdr *) l4;
+				src_port = udp_hdr->src_port;
+				dst_port = udp_hdr->dst_port;
+			}
+		} else {
+			packet_type |= RTE_PTYPE_L3_IPV4_EXT;
+		}
+	} else {
+		// Currently only support ipv4 packets.
+		packet_type |= RTE_PTYPE_L3_IPV6;
+	}
+	m->packet_type = packet_type;
+
+	struct in_addr src_ip_addr;
+	struct in_addr dst_ip_addr;
+	src_ip_addr.s_addr = src_ip;
+	dst_ip_addr.s_addr = dst_ip;
+	RTE_LOG(DEBUG, FLOWBOOK, "Flow %s:%hu => %s:%hu, %d\n", inet_ntoa(src_ip_addr), rte_be_to_cpu_16(src_port),
+	                          inet_ntoa(dst_ip_addr), rte_be_to_cpu_16(dst_port), protocol);
+}
+
 static void
 flowbook_recording(struct rte_mbuf *m, unsigned portid)
 {
@@ -194,9 +261,13 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 		l2fwd_mac_updating(m, dst_port);
 
 	buffer = tx_buffer[dst_port];
-	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
+	parse_packets(m);
+	// do not send anymore
+	// sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
+	sent = rte_eth_tx_buffer(DROP_PORT, 0, buffer, m);
 	if (sent)
 		port_statistics[dst_port].tx += sent;
+	
 }
 /* >8 End of simple forward. */
 
@@ -764,6 +835,7 @@ main(int argc, char **argv)
 	/**************************************************************
 	 *  Bind lcore to a port:queue
 	 *  Each lcore can bind to multiple queues of multiple ports.
+	 *  Each port can be allocated once.
 	 *  TODO: convert port-based allocation to queue-basded allocation.
 	 *        currently, each port has only one tx queue and one rxqueue.
 	 *        Alrouth multiple lcore can access one queue, but it is 
@@ -778,6 +850,7 @@ main(int argc, char **argv)
 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
 			continue;
 
+		// TODO: for each queue.
 		/* get the lcore_id for this port */
 		// find a availiable lcore.
 		while (rte_lcore_is_enabled(rx_lcore_id) == 0 ||
@@ -802,6 +875,7 @@ main(int argc, char **argv)
 		       portid, l2fwd_dst_ports[portid]);
 		// this lcore handler portid, send it to another port (according to forwarding table).
 		// TODO: updating this printf.
+		
 	}
 
 	/**************************************************************

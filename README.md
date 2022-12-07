@@ -24,11 +24,13 @@ sudo build/app/dpdk-testpmd -c7 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pca
 
 ## Implementation Thoughts
 
-1. Setup the project skeleton from l2fwd main.
-2. Add l3 and l4 parsing.
-3. Setup EM flow table to holding table entries.
-4. Add aging strategy for tables.
-5. Add reporting threads (maybe simple store as files).
+1. [OK] Setup the project skeleton from l2fwd main.
+2. [OK] Add l3 and l4 parsing.
+3. [TODO] Add test usecases.
+4. [TODO] Setup EM flow table to holding table entries.
+5. [TODO] Add aging strategy for tables.
+6. [TODO] Add reporting threads (maybe simple store as files).
+7. [TODO] Performance optimizing.
 
 
 ## Quick Start
