@@ -33,11 +33,12 @@ sudo build/app/dpdk-testpmd -c7 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pca
 
 ## Quick Start
 
-> This will build dpdk first and then build dcbook.
+> This will build dpdk first and then build flowbook.
 
 ```bash
 ./build.sh
 
-sudo ./dpdk-dcbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f0 -- -q 8 -p 3 --portmap="(0,1)"
-#             cores, core_num                                          queue_num  port_mask(1111) portmap 0 <-> 2, 1 <-> 3                  
+sudo ./dpdk-flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f0 -- -q 1 -p 3 --portmap="(0,1)"
+#             cores, core_num                                          queue_num_per_lcore port_mask(1111) portmap 0 <-> 2, 1 <-> 3 
+#                                                                      note that each port may have multiple queue.                 
 ```

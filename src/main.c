@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause
  * Copyright(c) 2010-2016 Intel Corporation
+ * Modified: Hao Zheng
+ * Date: 2022/12/07
  */
 
 #include <stdio.h>
@@ -46,7 +48,7 @@ static int mac_updating = 1;
 /* Ports set in promiscuous mode off by default. */
 static int promiscuous_on;
 
-#define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER1
+#define RTE_LOGTYPE_FLOWBOOK RTE_LOGTYPE_USER1
 
 #define MAX_PKT_BURST 32
 #define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
@@ -86,7 +88,8 @@ static unsigned int l2fwd_rx_queue_per_lcore = 1;
 struct lcore_queue_conf {
 	unsigned n_rx_port;
 	unsigned rx_port_list[MAX_RX_QUEUE_PER_LCORE];
-} __rte_cache_aligned;
+	// Each lcore may poll multiple queues of multiple ports.
+} __rte_cache_aligned;  //Cacheline: 64 Bytes
 struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
 /* >8 End of list of queues to be polled for a given lcore. */
 
@@ -178,7 +181,7 @@ l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_portid)
 
 /* Simple forward. 8< */
 static void
-l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
+flowbook_recording(struct rte_mbuf *m, unsigned portid)
 {
 	unsigned dst_port;
 	int sent;
@@ -187,6 +190,7 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 	dst_port = l2fwd_dst_ports[portid];
 
 	if (mac_updating)
+		// modify packet ethernet header.
 		l2fwd_mac_updating(m, dst_port);
 
 	buffer = tx_buffer[dst_port];
@@ -218,16 +222,16 @@ l2fwd_main_loop(void)
 	qconf = &lcore_queue_conf[lcore_id];
 
 	if (qconf->n_rx_port == 0) {
-		RTE_LOG(INFO, L2FWD, "lcore %u has nothing to do\n", lcore_id);
+		RTE_LOG(INFO, FLOWBOOK, "lcore %u has nothing to do\n", lcore_id);
 		return;
 	}
 
-	RTE_LOG(INFO, L2FWD, "entering main loop on lcore %u\n", lcore_id);
+	RTE_LOG(INFO, FLOWBOOK, "entering main loop on lcore %u\n", lcore_id);
 
 	for (i = 0; i < qconf->n_rx_port; i++) {
 
 		portid = qconf->rx_port_list[i];
-		RTE_LOG(INFO, L2FWD, " -- lcoreid=%u portid=%u\n", lcore_id,
+		RTE_LOG(INFO, FLOWBOOK, " -- lcoreid=%u portid=%u\n", lcore_id,
 			portid);
 
 	}
@@ -277,8 +281,12 @@ l2fwd_main_loop(void)
 		/* >8 End of draining TX queue. */
 
 		/* Read packet from RX queues. 8< */
+		/***
+		 * Each lcore may read multiple ports.
+		 * TODO: L4 packet parse here.
+		*/
 		for (i = 0; i < qconf->n_rx_port; i++) {
-
+			
 			portid = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst(portid, 0,
 						 pkts_burst, MAX_PKT_BURST);
@@ -290,8 +298,12 @@ l2fwd_main_loop(void)
 
 			for (j = 0; j < nb_rx; j++) {
 				m = pkts_burst[j];
+				// m is just an address.
+				// the packet body has not been loaded.
 				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
-				l2fwd_simple_forward(m, portid);
+
+				// NOTE: add my measuring logical here.
+				flowbook_recording(m, portid);
 			}
 		}
 		/* >8 End of read packet from RX queues. */
@@ -307,19 +319,19 @@ l2fwd_launch_one_lcore(__rte_unused void *dummy)
 
 /* display usage */
 static void
-l2fwd_usage(const char *prgname)
+dcbook_usage(const char *prgname)
 {
 	printf("%s [EAL options] -- -p PORTMASK [-P] [-q NQ]\n"
 	       "  -p PORTMASK: hexadecimal bitmask of ports to configure\n"
 	       "  -P : Enable promiscuous mode\n"
 	       "  -q NQ: number of queue (=ports) per lcore (default is 1)\n"
-	       "  -T PERIOD: statistics will be refreshed each PERIOD seconds (0 to disable, 10 default, 86400 maximum)\n"
-	       "  --no-mac-updating: Disable MAC addresses updating (enabled by default)\n"
-	       "      When enabled:\n"
-	       "       - The source MAC address is replaced by the TX port MAC address\n"
-	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n"
-	       "  --portmap: Configure forwarding port pair mapping\n"
-	       "	      Default: alternate port pairs\n\n",
+	       "  -T PERIOD: statistics will be refreshed each PERIOD seconds (0 to disable, 10 default, 86400 maximum)\n",
+	    //    "  --no-mac-updating: Disable MAC addresses updating (enabled by default)\n"
+	    //    "      When enabled:\n"
+	    //    "       - The source MAC address is replaced by the TX port MAC address\n"
+	    //    "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n"
+	    //    "  --portmap: Configure forwarding port pair mapping\n"
+	    //    "	      Default: alternate port pairs\n\n",
 	       prgname);
 }
 
@@ -468,16 +480,19 @@ l2fwd_parse_args(int argc, char **argv)
 				  lgopts, &option_index)) != EOF) {
 
 		switch (opt) {
+
 		/* portmask */
 		case 'p':
 			l2fwd_enabled_port_mask = l2fwd_parse_portmask(optarg);
 			if (l2fwd_enabled_port_mask == 0) {
 				printf("invalid portmask\n");
-				l2fwd_usage(prgname);
+				dcbook_usage(prgname);
 				return -1;
 			}
 			break;
+
 		case 'P':
+			printf("open promiscuous mode\n");
 			promiscuous_on = 1;
 			break;
 
@@ -486,28 +501,32 @@ l2fwd_parse_args(int argc, char **argv)
 			l2fwd_rx_queue_per_lcore = l2fwd_parse_nqueue(optarg);
 			if (l2fwd_rx_queue_per_lcore == 0) {
 				printf("invalid queue number\n");
-				l2fwd_usage(prgname);
+				dcbook_usage(prgname);
 				return -1;
 			}
 			break;
 
 		/* timer period */
+		/* Timer to print statistics */
+		/* TODO: Can be used to pring table infomations. */
 		case 'T':
 			timer_secs = l2fwd_parse_timer_period(optarg);
 			if (timer_secs < 0) {
 				printf("invalid timer period\n");
-				l2fwd_usage(prgname);
+				dcbook_usage(prgname);
 				return -1;
 			}
 			timer_period = timer_secs;
 			break;
 
 		/* long options */
+		// Used to configure l2fwding.
+		// TODO : remove them in the future.
 		case CMD_LINE_OPT_PORTMAP_NUM:
 			ret = l2fwd_parse_port_pair_config(optarg);
 			if (ret) {
 				fprintf(stderr, "Invalid config\n");
-				l2fwd_usage(prgname);
+				dcbook_usage(prgname);
 				return -1;
 			}
 			break;
@@ -517,7 +536,7 @@ l2fwd_parse_args(int argc, char **argv)
 			break;
 
 		default:
-			l2fwd_usage(prgname);
+			dcbook_usage(prgname);
 			return -1;
 		}
 	}
@@ -671,9 +690,10 @@ main(int argc, char **argv)
 	signal(SIGTERM, signal_handler);
 
 	/* parse application arguments (after the EAL ones) */
+	// parser portmask, rx queue num per lcore.
 	ret = l2fwd_parse_args(argc, argv);
 	if (ret < 0)
-		rte_exit(EXIT_FAILURE, "Invalid L2FWD arguments\n");
+		rte_exit(EXIT_FAILURE, "Invalid FLOWBOOK arguments\n");
 	/* >8 End of init EAL. */
 
 	printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
@@ -681,10 +701,15 @@ main(int argc, char **argv)
 	/* convert to number of cycles */
 	timer_period *= rte_get_timer_hz();
 
+	/**************************************************************
+	 *  Check port status and setup port forwarding table
+	 *  TODO: most of below canbe removed.
+	 *************************************************************/
 	nb_ports = rte_eth_dev_count_avail();
 	if (nb_ports == 0)
 		rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");
-
+	// Port map, setup forwarding strategy.
+	// TODO: remove these codes.
 	if (port_pair_params != NULL) {
 		if (check_port_pair_config() < 0)
 			rte_exit(EXIT_FAILURE, "Invalid port pair config\n");
@@ -734,6 +759,16 @@ main(int argc, char **argv)
 	}
 	/* >8 End of initialization of the driver. */
 
+
+
+	/**************************************************************
+	 *  Bind lcore to a port:queue
+	 *  Each lcore can bind to multiple queues of multiple ports.
+	 *  TODO: convert port-based allocation to queue-basded allocation.
+	 *        currently, each port has only one tx queue and one rxqueue.
+	 *        Alrouth multiple lcore can access one queue, but it is 
+	 *        not efficient.
+	 *************************************************************/
 	rx_lcore_id = 0;
 	qconf = NULL;
 
@@ -744,6 +779,7 @@ main(int argc, char **argv)
 			continue;
 
 		/* get the lcore_id for this port */
+		// find a availiable lcore.
 		while (rte_lcore_is_enabled(rx_lcore_id) == 0 ||
 		       lcore_queue_conf[rx_lcore_id].n_rx_port ==
 		       l2fwd_rx_queue_per_lcore) {
@@ -752,18 +788,27 @@ main(int argc, char **argv)
 				rte_exit(EXIT_FAILURE, "Not enough cores\n");
 		}
 
+		// get configure ptr of this lcore.
 		if (qconf != &lcore_queue_conf[rx_lcore_id]) {
 			/* Assigned a new logical core in the loop above. */
 			qconf = &lcore_queue_conf[rx_lcore_id];
-			nb_lcores++;
+			nb_lcores++; // update used lcores number.
 		}
 
-		qconf->rx_port_list[qconf->n_rx_port] = portid;
-		qconf->n_rx_port++;
+		// this port is handled by this lcore.
+		qconf->rx_port_list[qconf->n_rx_port] = portid; 
+		qconf->n_rx_port++;  // update port number handled by this lcore.
 		printf("Lcore %u: RX port %u TX port %u\n", rx_lcore_id,
 		       portid, l2fwd_dst_ports[portid]);
+		// this lcore handler portid, send it to another port (according to forwarding table).
+		// TODO: updating this printf.
 	}
 
+	/**************************************************************
+	 *  Setup mbuf pools, no need to change.
+	 *************************************************************/
+	// determine by: rx/tx desp of port, pkt_burst by lcore and 
+	// per-lcore pool in cache (256).
 	nb_mbufs = RTE_MAX(nb_ports * (nb_rxd + nb_txd + MAX_PKT_BURST +
 		nb_lcores * MEMPOOL_CACHE_SIZE), 8192U);
 
@@ -775,6 +820,13 @@ main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
 	/* >8 End of create the mbuf pool. */
 
+
+	/**************************************************************
+	 *  Configure hardware queues and bind to mbuf pools.
+	 *  NOTE: most of them should not be changed.
+	 *  TODO: Improve to multiqueue mode, maybe mbuf allocation need
+	 * 			also be changed.
+	 *************************************************************/
 	/* Initialise each port */
 	RTE_ETH_FOREACH_DEV(portid) {
 		struct rte_eth_rxconf rxq_conf;
@@ -802,7 +854,11 @@ main(int argc, char **argv)
 		if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE)
 			local_port_conf.txmode.offloads |=
 				RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
+
 		/* Configure the number of queues for a port. */
+		/* By default, each port configure one tx queue and one rx queue */
+		// TODO: add more queue for a port to enable more lcores.
+		// Mellonox CX5 has 48 combined queues.
 		ret = rte_eth_dev_configure(portid, 1, 1, &local_port_conf);
 		if (ret < 0)
 			rte_exit(EXIT_FAILURE, "Cannot configure device: err=%d, port=%u\n",
@@ -894,24 +950,35 @@ main(int argc, char **argv)
 		/* initialize port stats */
 		memset(&port_statistics, 0, sizeof(port_statistics));
 	}
+	
 
 	if (!nb_ports_available) {
 		rte_exit(EXIT_FAILURE,
 			"All available ports are disabled. Please set portmask.\n");
 	}
-
 	check_all_ports_link_status(l2fwd_enabled_port_mask);
+	/**************** Hardware Port configuration done. *********************/
 
+
+	/**************************************************************
+	 *  Setup main packets processing threads.
+	 *  TODO: add flowbook main logic here.
+	 *************************************************************/
 	ret = 0;
 	/* launch per-lcore init on every lcore */
 	rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL, CALL_MAIN);
+
+
+	/**************************************************************
+	 *  Wait lcore exit and clean up.
+	 *  NOTE: should not change these codes.
+	 *************************************************************/
 	RTE_LCORE_FOREACH_WORKER(lcore_id) {
 		if (rte_eal_wait_lcore(lcore_id) < 0) {
 			ret = -1;
 			break;
 		}
 	}
-
 	RTE_ETH_FOREACH_DEV(portid) {
 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
 			continue;
@@ -923,10 +990,8 @@ main(int argc, char **argv)
 		rte_eth_dev_close(portid);
 		printf(" Done\n");
 	}
-
 	/* clean up the EAL */
 	rte_eal_cleanup();
 	printf("Bye...\n");
-
 	return ret;
 }
