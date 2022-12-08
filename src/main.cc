@@ -44,6 +44,7 @@
 #include <rte_string_fns.h>
 
 #include "flowbook_hdr.h"
+#include "flowbook_table.h"
 
 static volatile bool force_quit;
 
@@ -108,52 +109,52 @@ struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 static uint64_t timer_period = 60; /* default period is 10 seconds */
 
 /* Print out statistics on packets dropped */
-static void
-print_stats(void)
-{
-	uint64_t total_packets_dropped, total_packets_tx, total_packets_rx;
-	unsigned portid;
+// static void
+// print_stats(void)
+// {
+// 	uint64_t total_packets_dropped, total_packets_tx, total_packets_rx;
+// 	unsigned portid;
 
-	total_packets_dropped = 0;
-	total_packets_tx = 0;
-	total_packets_rx = 0;
+// 	total_packets_dropped = 0;
+// 	total_packets_tx = 0;
+// 	total_packets_rx = 0;
 
-	// const char clr[] = { 27, '[', '2', 'J', '\0' };
-	// const char topLeft[] = { 27, '[', '1', ';', '1', 'H','\0' };
+// 	// const char clr[] = { 27, '[', '2', 'J', '\0' };
+// 	// const char topLeft[] = { 27, '[', '1', ';', '1', 'H','\0' };
 
-	/* Clear screen and move to top left */
-	// printf("%s%s", clr, topLeft);
+// 	/* Clear screen and move to top left */
+// 	// printf("%s%s", clr, topLeft);
 
-	printf("\nPort statistics ====================================");
+// 	printf("\nPort statistics ====================================");
 
-	for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++) {
-		/* skip disabled ports */
-		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
-			continue;
-		printf("\nStatistics for port %u ------------------------------"
-			   "\nPackets sent: %24"PRIu64
-			   "\nPackets received: %20"PRIu64
-			   "\nPackets dropped: %21"PRIu64,
-			   portid,
-			   port_statistics[portid].tx,
-			   port_statistics[portid].rx,
-			   port_statistics[portid].dropped);
+// 	for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++) {
+// 		/* skip disabled ports */
+// 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
+// 			continue;
+// 		printf("\nStatistics for port %u ------------------------------"
+// 			   "\nPackets sent: %24"PRIu64
+// 			   "\nPackets received: %20"PRIu64
+// 			   "\nPackets dropped: %21"PRIu64,
+// 			   portid,
+// 			   port_statistics[portid].tx,
+// 			   port_statistics[portid].rx,
+// 			   port_statistics[portid].dropped);
 
-		total_packets_dropped += port_statistics[portid].dropped;
-		total_packets_tx += port_statistics[portid].tx;
-		total_packets_rx += port_statistics[portid].rx;
-	}
-	printf("\nAggregate statistics ==============================="
-		   "\nTotal packets sent: %18"PRIu64
-		   "\nTotal packets received: %14"PRIu64
-		   "\nTotal packets dropped: %15"PRIu64,
-		   total_packets_tx,
-		   total_packets_rx,
-		   total_packets_dropped);
-	printf("\n====================================================\n");
+// 		total_packets_dropped += port_statistics[portid].dropped;
+// 		total_packets_tx += port_statistics[portid].tx;
+// 		total_packets_rx += port_statistics[portid].rx;
+// 	}
+// 	printf("\nAggregate statistics ==============================="
+// 		   "\nTotal packets sent: %18"PRIu64
+// 		   "\nTotal packets received: %14"PRIu64
+// 		   "\nTotal packets dropped: %15"PRIu64,
+// 		   total_packets_tx,
+// 		   total_packets_rx,
+// 		   total_packets_dropped);
+// 	printf("\n====================================================\n");
 
-	fflush(stdout);
-}
+// 	fflush(stdout);
+// }
 
 
 /**
@@ -304,7 +305,7 @@ flowbook_main_loop(void)
 
 					/* do this only on main core */
 					if (lcore_id == rte_get_main_lcore()) {
-						print_stats();
+						// print_stats();
 						/* reset the timer */
 						timer_tsc = 0;
 					}
@@ -577,6 +578,13 @@ main(int argc, char **argv)
 	unsigned int nb_lcores = 0;
 	unsigned int nb_mbufs;
 
+	
+	/**
+	 * NOTE: flow table to hold counters 
+	 * NOTE: Most important structures in this project.
+	 */
+	flowbook_table flowbook();
+
 	/* Init EAL. 8< */
 	ret = rte_eal_init(argc, argv);
 	if (ret < 0)
@@ -756,7 +764,7 @@ main(int argc, char **argv)
 		/* >8 End of init one TX queue on each port. */
 
 		/* Initialize TX buffers */
-		tx_buffer[portid] = rte_zmalloc_socket("tx_buffer",
+		tx_buffer[portid] = (rte_eth_dev_tx_buffer*) rte_zmalloc_socket("tx_buffer",
 				RTE_ETH_TX_BUFFER_SIZE(MAX_PKT_BURST), 0,
 				rte_eth_dev_socket_id(portid));
 		if (tx_buffer[portid] == NULL)

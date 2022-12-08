@@ -37,15 +37,16 @@ make all
 sudo make install
 ```
 
-## Implementation Process
+## Implementation Progress
 
 1. [OK] Setup the project skeleton from l2fwd main.
 2. [OK] Add l3 and l4 parsing.
 3. [OK] Add test usecases.
 4. [20%] Setup EM flow table to holding table entries.
-    a) [OK] Use meson to reference thread-safe hash table libraries.
-    b) [Working] Construct self-defined flow tables.
-    c) [TODO] Test flow tables.
+    * [OK] Use meson to reference thread-safe hash table libraries.
+    * [Working] Change project to c++ style.
+    * [Working] Construct self-defined flow tables.
+    * [TODO] Test flow tables.
 5. [TODO] Define self-defined protocol (i.e., packet header structure from NP devices.)
 6. [TODO] Add aging strategy for tables and reporting module (maybe simple store as files).
 
