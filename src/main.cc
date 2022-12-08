@@ -45,25 +45,19 @@
 
 #include "flowbook_hdr.h"
 #include "flowbook_table.h"
+#include "flowbook_utils.h"
 
 static volatile bool force_quit;
 
 /* Ports set in promiscuous mode off by default. */
 static int promiscuous_on;
 
-#define RTE_LOGTYPE_FLOWBOOK RTE_LOGTYPE_USER1
 
-#define MAX_PKT_BURST 32
-#define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
-#define MEMPOOL_CACHE_SIZE 256
-
-#define	DROP_PORT ((uint16_t)-1)
 
 /*
  * Configurable number of RX/TX ring descriptors
  */
-#define RX_DESC_DEFAULT 1024
-#define TX_DESC_DEFAULT 1024
+
 static uint16_t nb_rxd = RX_DESC_DEFAULT;
 static uint16_t nb_txd = TX_DESC_DEFAULT;
 
@@ -75,8 +69,6 @@ static uint32_t l2fwd_enabled_port_mask = 0;
 
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
 
-#define MAX_RX_QUEUE_PER_LCORE 16
-#define MAX_TX_QUEUE_PER_PORT 16
 /* List of queues to be polled for a given lcore. 8< */
 struct lcore_queue_conf {
 	unsigned n_rx_port;
@@ -104,58 +96,9 @@ struct l2fwd_port_statistics {
 } __rte_cache_aligned;
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
-#define MAX_TIMER_PERIOD 86400 /* 1 day max */
+
 /* A tsc-based timer responsible for triggering statistics printout */
 static uint64_t timer_period = 60; /* default period is 10 seconds */
-
-/* Print out statistics on packets dropped */
-// static void
-// print_stats(void)
-// {
-// 	uint64_t total_packets_dropped, total_packets_tx, total_packets_rx;
-// 	unsigned portid;
-
-// 	total_packets_dropped = 0;
-// 	total_packets_tx = 0;
-// 	total_packets_rx = 0;
-
-// 	// const char clr[] = { 27, '[', '2', 'J', '\0' };
-// 	// const char topLeft[] = { 27, '[', '1', ';', '1', 'H','\0' };
-
-// 	/* Clear screen and move to top left */
-// 	// printf("%s%s", clr, topLeft);
-
-// 	printf("\nPort statistics ====================================");
-
-// 	for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++) {
-// 		/* skip disabled ports */
-// 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
-// 			continue;
-// 		printf("\nStatistics for port %u ------------------------------"
-// 			   "\nPackets sent: %24"PRIu64
-// 			   "\nPackets received: %20"PRIu64
-// 			   "\nPackets dropped: %21"PRIu64,
-// 			   portid,
-// 			   port_statistics[portid].tx,
-// 			   port_statistics[portid].rx,
-// 			   port_statistics[portid].dropped);
-
-// 		total_packets_dropped += port_statistics[portid].dropped;
-// 		total_packets_tx += port_statistics[portid].tx;
-// 		total_packets_rx += port_statistics[portid].rx;
-// 	}
-// 	printf("\nAggregate statistics ==============================="
-// 		   "\nTotal packets sent: %18"PRIu64
-// 		   "\nTotal packets received: %14"PRIu64
-// 		   "\nTotal packets dropped: %15"PRIu64,
-// 		   total_packets_tx,
-// 		   total_packets_rx,
-// 		   total_packets_dropped);
-// 	printf("\n====================================================\n");
-
-// 	fflush(stdout);
-// }
-
 
 /**
  * @m: packet mbuf ref.
@@ -229,6 +172,7 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
     /* do not send anymore */
 	// struct rte_eth_dev_tx_buffer *buffer;
 	// buffer = tx_buffer[portid];
+	// #define	DROP_PORT ((uint16_t)-1)
 	// rte_eth_tx_buffer(DROP_PORT, 0, buffer, m); // it can ret sent pkts.
 }
 /* >8 End of simple forward. */
@@ -353,66 +297,6 @@ flowbook_launch_one_lcore(__rte_unused void *dummy)
 	return 0;
 }
 
-/* display usage */
-static void
-dcbook_usage(const char *prgname)
-{
-	printf("%s [EAL options] -- -p PORTMASK [-P] [-q NQ]\n"
-	       "  -p PORTMASK: hexadecimal bitmask of ports to configure\n"
-	       "  -P : Enable promiscuous mode\n"
-	       "  -q NQ: number of queue (=ports) per lcore (default is 1)\n"
-	       "  -T PERIOD: statistics will be refreshed each PERIOD seconds (0 to disable, 10 default, 86400 maximum)\n",
-	       prgname);
-}
-
-static int
-flowbook_parse_portmask(const char *portmask)
-{
-	char *end = NULL;
-	unsigned long pm;
-
-	/* parse hexadecimal string */
-	pm = strtoul(portmask, &end, 16);
-	if ((portmask[0] == '\0') || (end == NULL) || (*end != '\0'))
-		return 0;
-
-	return pm;
-}
-
-static unsigned int
-flowbook_parse_nqueue(const char *q_arg)
-{
-	char *end = NULL;
-	unsigned long n;
-
-	/* parse hexadecimal string */
-	n = strtoul(q_arg, &end, 10);
-	if ((q_arg[0] == '\0') || (end == NULL) || (*end != '\0'))
-		return 0;
-	if (n == 0)
-		return 0;
-	if (n >= MAX_RX_QUEUE_PER_LCORE)
-		return 0;
-
-	return n;
-}
-
-static int
-flowbook_parse_timer_period(const char *q_arg)
-{
-	char *end = NULL;
-	int n;
-
-	/* parse number string */
-	n = strtol(q_arg, &end, 10);
-	if ((q_arg[0] == '\0') || (end == NULL) || (*end != '\0'))
-		return -1;
-	if (n >= MAX_TIMER_PERIOD)
-		return -1;
-
-	return n;
-}
-
 static const char short_options[] =
 	"p:"  /* portmask */
 	"P"   /* promiscuous */
@@ -495,8 +379,7 @@ flowbook_parse_args(int argc, char **argv)
 static void
 check_all_ports_link_status(uint32_t port_mask)
 {
-#define CHECK_INTERVAL 100 /* 100ms */
-#define MAX_CHECK_TIME 90 /* 9s (90 * 100ms) in total */
+
 	uint16_t portid;
 	uint8_t count, all_ports_up, print_flag = 0;
 	struct rte_eth_link link;
@@ -505,7 +388,7 @@ check_all_ports_link_status(uint32_t port_mask)
 
 	printf("\nChecking link status");
 	fflush(stdout);
-	for (count = 0; count <= MAX_CHECK_TIME; count++) {
+	for (count = 0; count <= MAX_CHECK_LINK_STATS_TIME; count++) {
 		if (force_quit)
 			return;
 		all_ports_up = 1;
@@ -544,11 +427,11 @@ check_all_ports_link_status(uint32_t port_mask)
 		if (all_ports_up == 0) {
 			printf(".");
 			fflush(stdout);
-			rte_delay_ms(CHECK_INTERVAL);
+			rte_delay_ms(CHECK_LINK_STATS_INTERVAL);
 		}
 
 		/* set the print_flag if all ports up or timeout */
-		if (all_ports_up == 1 || count == (MAX_CHECK_TIME - 1)) {
+		if (all_ports_up == 1 || count == (MAX_CHECK_LINK_STATS_TIME - 1)) {
 			print_flag = 1;
 			printf("done\n");
 		}
@@ -824,8 +707,9 @@ main(int argc, char **argv)
 	 *************************************************************/
 	ret = 0;
 	/* launch per-lcore init on every lcore */
+	// different worker are specifed in the same function.
 	rte_eal_mp_remote_launch(flowbook_launch_one_lcore, NULL, CALL_MAIN);
-
+	
 
 	/**************************************************************
 	 *  Wait lcore exit and clean up.

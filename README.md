@@ -73,10 +73,10 @@ Run flowbook daemon:
 
 ```
 # 1 port
-sudo ./build/dpdk-flowbook -l 0 -n 1 --vdev=net_pcap0,iface=enp130s0f0 -- -q 1 -p 1
+sudo ./build/flowbook -l 0 -n 1 --vdev=net_pcap0,iface=enp130s0f0 -- -q 1 -p 1
 
 # 2 ports
-sudo  ./build/dpdk-flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f1 -- -q 1 -p 3 
+sudo  ./build/flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f1 -- -q 1 -p 3 
 #             cores, core_num                                          queue_num_per_lcore port_mask(1111)     
 ```
 
