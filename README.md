@@ -26,11 +26,15 @@ sudo build/app/dpdk-testpmd -c7 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pca
 
 1. [OK] Setup the project skeleton from l2fwd main.
 2. [OK] Add l3 and l4 parsing.
-3. [TODO] Add test usecases.
+3. [OK] Add test usecases.
 4. [TODO] Setup EM flow table to holding table entries.
 5. [TODO] Add aging strategy for tables.
 6. [TODO] Add reporting threads (maybe simple store as files).
 7. [TODO] Performance optimizing.
+
+## BUGs
+
+1. Wrong dst_ip : maybe the NIC modify the ip addr.
 
 
 ## Quick Start
@@ -39,8 +43,18 @@ sudo build/app/dpdk-testpmd -c7 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pca
 
 ```bash
 ./build.sh
+            
+```
 
-sudo ./dpdk-flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f0 -- -q 1 -p 3 --portmap="(0,1)"
-#             cores, core_num                                          queue_num_per_lcore port_mask(1111) portmap 0 <-> 2, 1 <-> 3 
-#                                                                      note that each port may have multiple queue.                 
+Run flowbook daemon:
+
+```
+sudo ./dpdk-flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f0 -- -q 1 -p 3 
+#             cores, core_num                                          queue_num_per_lcore port_mask(1111)     
+```
+
+Send packets.
+
+```
+sudo ./sendpkt.py -p enp130s0f0 -s 10.0.0.0/24 -n 5 -l 64
 ```
