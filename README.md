@@ -34,7 +34,7 @@ sudo build/app/dpdk-testpmd -c7 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pca
 
 ## BUGs
 
-1. Wrong dst_ip : maybe the NIC modify the ip addr.
+1. [FIX] Wrong dst_ip : maybe the NIC modify the ip addr.
 
 
 ## Quick Start
@@ -49,12 +49,16 @@ sudo build/app/dpdk-testpmd -c7 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pca
 Run flowbook daemon:
 
 ```
-sudo ./dpdk-flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f0 -- -q 1 -p 3 
+# single port
+sudo ./dpdk-flowbook -l 0 -n 1 --vdev=net_pcap0,iface=enp130s0f0 -- -q 1 -p 1
+
+# 2 ports
+sudo ./dpdk-flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f1 -- -q 1 -p 3 
 #             cores, core_num                                          queue_num_per_lcore port_mask(1111)     
 ```
 
 Send packets.
 
 ```
-sudo ./sendpkt.py -p enp130s0f0 -s 10.0.0.0/24 -n 5 -l 64
+sudo ./sendpkt.py -p enp130s0f0 -s 10.0.0.0/24 -d 1.1.1.1 -n 5 -l 64
 ```

@@ -34,6 +34,7 @@ while count != packet_num:
                 pkt = Ether(src="00:00:00:00:00:00", dst="ff:ff:ff:ff:ff:ff") / IP(src=src_ip, dst=dst_ip) / UDP(dport=4321, sport=1234)
                 pkt = pkt / ('a'* (packet_size-4 - len(pkt)))
                 sendp(pkt, iface=port, verbose=0)
+                # pkt.show()
                 skip_num += 1
                 if skip_num >= 2**(32 - net_dst.prefixlen):
                     skip_num = 0

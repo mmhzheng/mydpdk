@@ -208,26 +208,25 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 		} else {
 			packet_type |= RTE_PTYPE_L3_IPV4_EXT;
 		}
+		/* print the parsed flow */
+		struct sockaddr_in src_addr_obj, dst_addr_obj;
+		src_addr_obj.sin_addr.s_addr = src_ip;
+		dst_addr_obj.sin_addr.s_addr = dst_ip;
+		char src_addr_str[32];
+		char dst_addr_str[32];
+		inet_ntop(AF_INET, &(src_addr_obj.sin_addr), src_addr_str, 32);
+		inet_ntop(AF_INET, &(dst_addr_obj.sin_addr), dst_addr_str, 32);
+		RTE_LOG(INFO, FLOWBOOK, "[Port %d] %s:%hu => %s:%hu, %d\n", portid, src_addr_str, rte_be_to_cpu_16(src_port),
+								dst_addr_str, rte_be_to_cpu_16(dst_port), protocol);
 	} else {
 		// Currently only support ipv4 packets.
 		packet_type |= RTE_PTYPE_L3_IPV6;
 	}
 	m->packet_type = packet_type;
-
-	struct in_addr src_ip_addr;
-	struct in_addr dst_ip_addr;
-	src_ip_addr.s_addr = src_ip;
-	dst_ip_addr.s_addr = dst_ip;
-	RTE_LOG(INFO, FLOWBOOK, "[Port %d] %s:%hu => %s:%hu, %d\n", portid, inet_ntoa(src_ip_addr), rte_be_to_cpu_16(src_port),
-	                          inet_ntoa(dst_ip_addr), rte_be_to_cpu_16(dst_port), protocol);
-
     /* do not send anymore */
-	// int sent;
 	// struct rte_eth_dev_tx_buffer *buffer;
-	// sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
-	// sent = rte_eth_tx_buffer(DROP_PORT, 0, buffer, m);
-	// if (sent)
-	// 	port_statistics[dst_port].tx += sent;
+	// buffer = tx_buffer[portid];
+	// rte_eth_tx_buffer(DROP_PORT, 0, buffer, m); // it can ret sent pkts.
 }
 /* >8 End of simple forward. */
 
@@ -338,6 +337,7 @@ flowbook_main_loop(void)
 				// NOTE: add my measuring logical here.
 				flowbook_recording(m, portid);
 			}
+			rte_pktmbuf_free_bulk(pkts_burst, nb_rx); // Free packets in bulk.
 		}
 		/* >8 End of read packet from RX queues. */
 	}
