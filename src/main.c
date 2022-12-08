@@ -43,6 +43,8 @@
 #include <rte_mbuf.h>
 #include <rte_string_fns.h>
 
+#include "flowbook_hdr.h"
+
 static volatile bool force_quit;
 
 /* Ports set in promiscuous mode off by default. */
