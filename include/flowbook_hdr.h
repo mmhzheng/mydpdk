@@ -29,11 +29,10 @@ extern "C" {
 #define FLOW_BOOK_PDU_TYPE_ERB   202   // BG Insert Failed.
 
 #define FLOW_BOOK_PDU_TYPE_1_CNT_NUM 1
-#define FLOW_BOOK_PDU_TYPE_1_CNT_NUM 1
-#define FLOW_BOOK_PDU_TYPE_1_CNT_NUM 1
-#define FLOW_BOOK_PDU_TYPE_1_CNT_NUM 1
-#define FLOW_BOOK_PDU_TYPE_1_CNT_NUM 1
-
+#define FLOW_BOOK_PDU_TYPE_2_CNT_NUM 2
+#define FLOW_BOOK_PDU_TYPE_3_CNT_NUM 4
+#define FLOW_BOOK_PDU_TYPE_4_CNT_NUM 8
+#define FLOW_BOOK_PDU_TYPE_5_CNT_NUM 16
 
 /**
  * Flowbook header: UDP Port (19987)
@@ -44,18 +43,24 @@ struct flowbook_header {
 } __rte_packed;
 
 struct flowbook_pdu {
+	/* pdu type, number of counters*/
+	uint8_t    type; 
+
+	/* flow key */
 	rte_be16_t flowkey_srcport;
 	rte_be16_t flowkey_dstport;
 	rte_be32_t flowkey_srcip;
 	rte_be32_t flowkey_dstip;
-	uint8_t    type; 
 	uint8_t    flowkey_protocol;
+
+	/* flow attribute*/
 	uint16_t   packet_max;
 	uint16_t   packet_tot;
 	uint32_t   byte_tot;
 	uint32_t   byte_max;
 
 	rte_be32_t window_begin;
+	rte_be32_t window_end;
 } __rte_packed;
 
 struct flowbook_ctrs_type_1 {

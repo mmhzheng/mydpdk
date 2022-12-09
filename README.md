@@ -47,7 +47,7 @@ sudo make install
     * [OK] Change project to c++ style.
     * [OK] Construct self-defined flow tables (Use high-performance concurrent hash table libcuckoo).
     * [OK] Test flow tables.
-5. [50%] Define self-defined protocol (i.e., packet header structure from NP devices.)
+5. [OK] Define self-defined protocol (i.e., packet header structure from NP devices.)
 6. [TODO] Add aging strategy for tables and reporting module (maybe simple store as files).
 
 ---- Project works.
