@@ -19,16 +19,31 @@ public:
     // main update func.
     // If not exist, insert <key, attr>
     // Else, update the key with new attr
-    int upsert(flow_key* key, flow_attr* attr){
-        // if table entry exists, call do_update func.
-        // else insert attr as the new entry.
-        table.upsert(*key, [&](flow_attr& in_mem_attr){
-            // in_mem_attr._byte_max = std::max();
-        }, *attr);
+    void upsert(flow_key key, flow_attr attr){
+        table.upsert(key, [&](flow_attr& in_mem_attr){
+            in_mem_attr._byte_max = std::max(in_mem_attr._byte_max, attr._byte_max);
+            in_mem_attr._packet_max = std::max(in_mem_attr._packet_max, attr._packet_max);
+            in_mem_attr._byte_tot += attr._byte_tot;
+            in_mem_attr._packet_tot += attr._packet_tot;
+            in_mem_attr._last_time = attr._last_time;
+        }, attr);
+    }
+
+    void show() {
+        printf("%s\n", "Show table status once ----------------------");
+        auto lt = table.lock_table();
+        for (auto &it : lt){
+            printf("%s, %s", it.first.to_string().c_str(), it.second.to_string().c_str());
+        }
     }
 
     ~flowbook_table(){
         // TODO: report all table and release memory.
+        // auto lt = table.lock_table();
+        // for (const auto &it : lt) {
+        //     delete &it.first;
+        //     delete &it.second;
+        // }
     }
 private:
     FlowTable table;

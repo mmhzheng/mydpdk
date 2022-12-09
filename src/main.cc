@@ -52,8 +52,6 @@ static volatile bool force_quit;
 /* Ports set in promiscuous mode off by default. */
 static int promiscuous_on;
 
-
-
 /*
  * Configurable number of RX/TX ring descriptors
  */
@@ -98,7 +96,10 @@ struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
 
 /* A tsc-based timer responsible for triggering statistics printout */
-static uint64_t timer_period = 60; /* default period is 10 seconds */
+static uint64_t timer_period = 15; /* default period is 10 seconds */
+
+
+static flowbook_table g_flowtable(DEBUG_TABLE_SIZE);
 
 /**
  * @m: packet mbuf ref.
@@ -118,11 +119,8 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 	struct rte_tcp_hdr *tcp_hdr;
 	struct rte_udp_hdr *udp_hdr;
 	
-	uint32_t src_ip = 0;
-	uint32_t dst_ip = 0;
-	uint16_t src_port = 0;
-	uint16_t dst_port = 0;
-	uint8_t  protocol = 0;
+	flow_key  key;
+	flow_attr attr;
 
 	eth_hdr = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
 	// Note that the field is big ending (be).
@@ -132,38 +130,37 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 	if ( ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4) ) {
 		ipv4_hdr = (struct rte_ipv4_hdr *)l3;
 		hdr_len = rte_ipv4_hdr_len(ipv4_hdr);
-		src_ip = ipv4_hdr->src_addr;
-		dst_ip = ipv4_hdr->dst_addr;
+		key._srcip = ipv4_hdr->src_addr;
+		key._dstip = ipv4_hdr->dst_addr;
 		if ( hdr_len == sizeof(struct rte_ipv4_hdr) ){
 			packet_type |= RTE_PTYPE_L3_IPV4;
 			l4 = (uint8_t *)ipv4_hdr + hdr_len;
-			protocol = ipv4_hdr->next_proto_id;
-			if ( protocol == IPPROTO_TCP ){
+			key._protocol = ipv4_hdr->next_proto_id;
+			if ( key._protocol == IPPROTO_TCP ){
 				packet_type |= RTE_PTYPE_L4_TCP;
 				tcp_hdr = (struct rte_tcp_hdr *) l4;
-				src_port = tcp_hdr->src_port;
-				dst_port = tcp_hdr->dst_port;
+				key._srcport = rte_be_to_cpu_16(tcp_hdr->src_port);
+				key._dstport = rte_be_to_cpu_16(tcp_hdr->dst_port);
 			}
-			else if ( protocol == IPPROTO_UDP )
+			else if ( key._protocol == IPPROTO_UDP )
 			{
 				packet_type |= RTE_PTYPE_L4_UDP;
 				udp_hdr = (struct rte_udp_hdr *) l4;
-				src_port = udp_hdr->src_port;
-				dst_port = udp_hdr->dst_port;
+				key._srcport = rte_be_to_cpu_16(udp_hdr->src_port);
+				key._dstport = rte_be_to_cpu_16(udp_hdr->dst_port);
 			}
 		} else {
 			packet_type |= RTE_PTYPE_L3_IPV4_EXT;
 		}
 		/* print the parsed flow */
-		struct sockaddr_in src_addr_obj, dst_addr_obj;
-		src_addr_obj.sin_addr.s_addr = src_ip;
-		dst_addr_obj.sin_addr.s_addr = dst_ip;
-		char src_addr_str[32];
-		char dst_addr_str[32];
-		inet_ntop(AF_INET, &(src_addr_obj.sin_addr), src_addr_str, 32);
-		inet_ntop(AF_INET, &(dst_addr_obj.sin_addr), dst_addr_str, 32);
-		RTE_LOG(INFO, FLOWBOOK, "[Port %d] %s:%hu => %s:%hu, %d\n", portid, src_addr_str, rte_be_to_cpu_16(src_port),
-								dst_addr_str, rte_be_to_cpu_16(dst_port), protocol);
+		RTE_LOG(INFO, FLOWBOOK, "[Port %d] %s\n", portid, key.to_string().c_str());
+
+		// TODO use a real flow attr.
+		attr._byte_tot = m->pkt_len;
+		attr._packet_tot = 1;
+		attr._start_time = (uint32_t)rte_rdtsc();
+		attr._last_time  = (uint32_t)rte_rdtsc();
+		g_flowtable.upsert(key, attr);
 	} else {
 		// Currently only support ipv4 packets.
 		packet_type |= RTE_PTYPE_L3_IPV6;
@@ -188,9 +185,6 @@ flowbook_main_loop(void)
 	uint64_t prev_tsc, diff_tsc, cur_tsc, timer_tsc;
 	unsigned i, j, portid, nb_rx;
 	struct lcore_queue_conf *qconf;
-	const uint64_t drain_tsc = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S *
-			BURST_TX_DRAIN_US;
-
 
 	/*No need to send packets*/
 	// int sent;
@@ -218,61 +212,34 @@ flowbook_main_loop(void)
 	}
 
 	while (!force_quit) {
-
-		/* Drains TX queue in its main loop. 8< */
-		cur_tsc = rte_rdtsc();
-
 		/*
-		 * TX burst queue drain
+		 * Show flow table periodly.
 		 */
+		cur_tsc = rte_rdtsc();
 		diff_tsc = cur_tsc - prev_tsc;
-		if (unlikely(diff_tsc > drain_tsc)) {
-
-			/* No need to send packets */
-			// for (i = 0; i < qconf->n_rx_port; i++) {
-				// portid = l2fwd_dst_ports[qconf->rx_port_list[i]];
-				// buffer = tx_buffer[portid];
-
-				// sent = rte_eth_tx_buffer_flush(portid, 0, buffer);
-				// if (sent)
-				// 	port_statistics[portid].tx += sent;
-			// }
-
-			/* if timer is enabled */
-			if (timer_period > 0) {
-
-				/* advance the timer */
-				timer_tsc += diff_tsc;
-
-				/* if timer has reached its timeout */
-				if (unlikely(timer_tsc >= timer_period)) {
-
-					/* do this only on main core */
-					if (lcore_id == rte_get_main_lcore()) {
-						// print_stats();
-						/* reset the timer */
-						timer_tsc = 0;
-					}
+		/* if timer is enabled */
+		if (timer_period > 0) {
+			/* advance the timer */
+			timer_tsc += diff_tsc;
+			/* if timer has reached its timeout */
+			if (unlikely(timer_tsc >= timer_period)) {
+				/* do this only on main core */
+				if (lcore_id == rte_get_main_lcore()) {
+					g_flowtable.show();
+					/* reset the timer */
+					timer_tsc = 0;
 				}
 			}
-
-			prev_tsc = cur_tsc;
 		}
-		/* >8 End of draining TX queue. */
+		prev_tsc = cur_tsc;
 
 		/* Read packet from RX queues. 8< */
-		/***
-		 * Each lcore may read multiple ports.
-		*/
 		for (i = 0; i < qconf->n_rx_port; i++) {
-			
 			portid = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst(portid, 0,
 						 pkts_burst, MAX_PKT_BURST);
-
 			if (unlikely(nb_rx == 0))
 				continue;
-
 			port_statistics[portid].rx += nb_rx;
 
 			for (j = 0; j < nb_rx; j++) {
@@ -280,7 +247,6 @@ flowbook_main_loop(void)
 				// m is just an address.
 				// the packet body has not been loaded.
 				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
-
 				// NOTE: add my measuring logical here.
 				flowbook_recording(m, portid);
 			}

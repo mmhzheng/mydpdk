@@ -12,14 +12,14 @@ sudo pip3 install meson
 --- Build DPDK
 # download dpdk-stable-20.11.1 at deps/
 meson setup build
-cd build
-ninja
-sudo ninja install   # install dpdk lib to /usr/local
+ninja -C build
+sudo ninja -C build install   # install dpdk lib to /usr/local
 sudo ldconfig        
 
 mkdir -p /dev/hugepages
 mountpoint -q /dev/hugepages || mount -t hugetlbfs nodev /dev/hugepages
 echo 64 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
+grep Huge /proc/meminfo
 ---
 
 --- Bind port and run test
@@ -42,12 +42,12 @@ sudo make install
 1. [OK] Setup the project skeleton from l2fwd main.
 2. [OK] Add l3 and l4 parsing.
 3. [OK] Add test usecases.
-4. [20%] Setup EM flow table to holding table entries.
+4. [OK] Setup EM flow table to holding table entries.
     * [OK] Use meson to reference thread-safe hash table libraries.
-    * [Working] Change project to c++ style.
-    * [Working] Construct self-defined flow tables.
-    * [TODO] Test flow tables.
-5. [TODO] Define self-defined protocol (i.e., packet header structure from NP devices.)
+    * [OK] Change project to c++ style.
+    * [OK] Construct self-defined flow tables (Use high-performance concurrent hash table libcuckoo).
+    * [OK] Test flow tables.
+5. [50%] Define self-defined protocol (i.e., packet header structure from NP devices.)
 6. [TODO] Add aging strategy for tables and reporting module (maybe simple store as files).
 
 ---- Project works.
@@ -83,7 +83,7 @@ sudo  ./build/flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_
 Send packets.
 
 ```
-sudo ./sendpkt.py -p enp130s0f0 -s 10.0.0.0/24 -d 1.1.1.1 -n 5 -l 64
+sudo ./test/sendpkt.py -p enp130s0f0 -s 10.0.0.0/24 -d 1.1.1.0/24 -n 5 -l 64
 ```
 
 ## Links

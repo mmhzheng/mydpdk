@@ -6,7 +6,3 @@
 #include <cstring>
 #include <functional>
 
-namespace std {
-    
-
-}
