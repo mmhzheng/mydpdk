@@ -153,8 +153,7 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 			packet_type |= RTE_PTYPE_L3_IPV4_EXT;
 		}
 		/* print the parsed flow */
-		RTE_LOG(INFO, FLOWBOOK, "[Port %d] %s\n", portid, key.to_string().c_str());
-
+		RTE_LOG(INFO, FLOWBOOK, "[Port %d] %s\n", portid, key.to_string().c_str()); 
 		// TODO use a real flow attr.
 		attr._byte_tot = m->pkt_len;
 		attr._packet_tot = 1;

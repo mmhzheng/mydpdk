@@ -33,7 +33,7 @@ public:
         printf("%s\n", "Show table status once ----------------------");
         auto lt = table.lock_table();
         for (auto &it : lt){
-            printf("%s, %s", it.first.to_string().c_str(), it.second.to_string().c_str());
+            printf("%s, %s \n", it.first.to_string().c_str(), it.second.to_string().c_str());
         }
     }
 
