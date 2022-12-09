@@ -2,37 +2,36 @@
 #define _FLOW_BOOK_TABLE_
 
 #include <libcuckoo/cuckoohash_map.hh>
-#include <vector>
+#include "flowbook_entry.h"
 
-struct flow_key {
-    uint32_t _srcip;
-    uint32_t _dstip;
-    uint16_t _srcport;
-    uint16_t _dstport;
-    uint8_t  _protocol;
-};
 
-struct flow_attr {
-    uint32_t _start_time;
-    uint32_t _last_time;
-    uint16_t _packet_tot;
-    uint32_t _byte_tot;
-	uint16_t _packet_max;   // max pcket number in 10-us window.
-	uint32_t _byte_max;     // max byte  number in 10-us window.
-    std::vector<uint8_t>  _pktctrs;
-    std::vector<uint16_t> _bytectrs;
-};
+#define DEFAULT_TABLE_SIZE  500000000   // 500M
+#define DEBUG_TABLE_SIZE    100         // 100
+
+using FlowTable=libcuckoo::cuckoohash_map<flow_key, flow_attr>;
 
 class flowbook_table {
 public:
-    flowbook_table(){
-
+    flowbook_table(size_t table_size = DEFAULT_TABLE_SIZE){
+        table.reserve(table_size);
     }
-    void insert(){
-        
+
+    // main update func.
+    // If not exist, insert <key, attr>
+    // Else, update the key with new attr
+    int upsert(flow_key* key, flow_attr* attr){
+        // if table entry exists, call do_update func.
+        // else insert attr as the new entry.
+        table.upsert(*key, [&](flow_attr& in_mem_attr){
+            // in_mem_attr._byte_max = std::max();
+        }, *attr);
+    }
+
+    ~flowbook_table(){
+        // TODO: report all table and release memory.
     }
 private:
-    libcuckoo::cuckoohash_map<, std::string> Table;
+    FlowTable table;
 };
 
 #endif // _FLOW_BOOK_TABLE_
