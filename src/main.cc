@@ -95,8 +95,8 @@ struct l2fwd_port_statistics {
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
 
-/* A tsc-based timer responsible for triggering statistics printout */
-static uint64_t timer_period = 15; /* default period is 10 seconds */
+/* A tsc-based timer responsible for triggering table reporting check */
+static uint64_t timer_period = 3; /* default period is 3 seconds */
 
 
 static flowbook_table g_flowtable(DEBUG_TABLE_SIZE);
@@ -224,7 +224,7 @@ flowbook_main_loop(void)
 			if (unlikely(timer_tsc >= timer_period)) {
 				/* do this only on main core */
 				if (lcore_id == rte_get_main_lcore()) {
-					g_flowtable.show();
+					g_flowtable.check_and_report();
 					/* reset the timer */
 					timer_tsc = 0;
 				}

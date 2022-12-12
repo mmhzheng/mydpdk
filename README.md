@@ -48,11 +48,14 @@ sudo make install
     * [OK] Construct self-defined flow tables (Use high-performance concurrent hash table libcuckoo).
     * [OK] Test flow tables.
 5. [OK] Define self-defined protocol (i.e., packet header structure from NP devices.)
-6. [TODO] Add aging strategy for tables and reporting module (maybe simple store as files).
+6. [OK] Add aging strategy for tables and reporting module (maybe simple store as files).
+    * [OK] Thread-safe table switching (active table and idle table).
+    * [OK] Store idle table entires into a file.
 
 ---- Project works.
 
-7. [TODO] Performance optimizing.
+7. [TODO] Report to redis or other database (currently store as files).
+8. [TODO] Performance optimizing.
 
 ## BUGs
 

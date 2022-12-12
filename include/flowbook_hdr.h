@@ -28,11 +28,7 @@ extern "C" {
 #define FLOW_BOOK_PDU_TYPE_ERF   201   // FG Insert Failed.
 #define FLOW_BOOK_PDU_TYPE_ERB   202   // BG Insert Failed.
 
-#define FLOW_BOOK_PDU_TYPE_1_CNT_NUM 1
-#define FLOW_BOOK_PDU_TYPE_2_CNT_NUM 2
-#define FLOW_BOOK_PDU_TYPE_3_CNT_NUM 4
-#define FLOW_BOOK_PDU_TYPE_4_CNT_NUM 8
-#define FLOW_BOOK_PDU_TYPE_5_CNT_NUM 16
+#define FLOW_BOOK_PDU_MAX_CTRS   100
 
 /**
  * Flowbook header: UDP Port (19987)
@@ -43,31 +39,27 @@ struct flowbook_header {
 } __rte_packed;
 
 struct flowbook_pdu {
-	/* pdu type, number of counters*/
-	uint8_t    type; 
-
 	/* flow key */
-	rte_be16_t flowkey_srcport;
-	rte_be16_t flowkey_dstport;
-	rte_be32_t flowkey_srcip;
-	rte_be32_t flowkey_dstip;
-	uint8_t    flowkey_protocol;
+	rte_be32_t   flowkey_srcip;
+	rte_be32_t   flowkey_dstip;
+	rte_be16_t   flowkey_srcport;
+	rte_be16_t   flowkey_dstport;
+	uint8_t      flowkey_protocol;
 
 	/* flow attribute*/
-	uint16_t   packet_max;
-	uint16_t   packet_tot;
-	uint32_t   byte_tot;
-	uint32_t   byte_max;
+	rte_be16_t   packet_max;
+	rte_be16_t   packet_tot;
+	rte_be32_t   byte_tot;
+	rte_be32_t   byte_max;
 
-	rte_be32_t window_begin;
-	rte_be32_t window_end;
+	rte_be32_t   window_begin;
+	uint8_t      max_offset;
+
+	/* WARN, notice the counter index must <= max_offset */
+	uint8_t    pktctrs[FLOW_BOOK_PDU_MAX_CTRS];
+	rte_be16_t bytectrs[FLOW_BOOK_PDU_MAX_CTRS];
 } __rte_packed;
 
-struct flowbook_ctrs_type_1 {
-	// short table
-	uint8_t    pktctrs[FLOW_BOOK_PDU_TYPE_1_CNT_NUM];
-	rte_be16_t bytectrs[FLOW_BOOK_PDU_TYPE_1_CNT_NUM];
-} __rte_packed;
 
 #ifdef __cplusplus
 }
