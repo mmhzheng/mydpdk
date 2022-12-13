@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <arpa/inet.h>
+#include "flowbook_hash.h"
 
 
 /**
@@ -17,6 +18,18 @@ struct flow_key {
     uint16_t _srcport;
     uint16_t _dstport;
     uint8_t  _protocol;
+    size_t hash() const{
+        /**
+         * TODO:  choose a better hash func.
+        */
+        static flow_hasher flow_hasher;
+        size_t h1 = flow_hasher.run((const char*)&_srcip, 4);
+        size_t h2 = flow_hasher.run((const char*)&_dstip, 4);
+        size_t h3 = flow_hasher.run((const char*)&_srcport, 2);
+        size_t h4 = flow_hasher.run((const char*)&_dstport, 2);
+        size_t h5 = flow_hasher.run((const char*)&_protocol, 1);
+        return h1 ^ h2 ^ h3 ^ h4 ^ h5;
+    }
     std::string to_string() const{
         char format[100];
         char srcbuf[INET_ADDRSTRLEN + 1];
@@ -36,8 +49,8 @@ struct flow_key {
  * Definition for the val of a flow record.
 */
 struct flow_attr {
-    uint32_t _start_time;       // start time of a flow: only update at the init.
-    uint32_t _last_time;        // last update time (used to aging and regard as the end of a flow)
+    uint64_t _start_time;       // start time of a flow: only update at the init.
+    uint64_t _last_time;        // last update time (used to aging and regard as the end of a flow)
     uint16_t _packet_tot = 0;   // total number of packets of the flow
     uint32_t _byte_tot   = 0;   // total bytes of a flow
 	uint16_t _packet_max = 0;   // max pcket number in 10-us window
@@ -46,7 +59,7 @@ struct flow_attr {
     std::vector<uint16_t> _bytectrs;
     std::string to_string() const{
         char format[100];
-        sprintf(format, "FlowAttr=(start_time=%u, last_time=%u, total_pkt=%hu, total_byte=%u)", 
+        sprintf(format, "FlowAttr=(start_time=%lu, last_time=%lu, total_pkt=%hu, total_byte=%u)", 
                                  _start_time, _last_time, _packet_tot, _byte_tot);
         return std::string(format);
     }
@@ -56,13 +69,7 @@ namespace std {
     template <> struct hash<flow_key> {
         size_t operator()(const flow_key &kb) const 
         { 
-            // TODO: implement real a hash function.
-            size_t h1 = std::hash<uint32_t>{}(kb._srcip);
-            size_t h2 = std::hash<uint32_t>{}(kb._dstip);
-            size_t h3 = std::hash<uint16_t>{}(kb._srcport);
-            size_t h4 = std::hash<uint16_t>{}(kb._dstport);
-            size_t h5 = std::hash<uint8_t>{}(kb._protocol);
-            return h1 ^ (h2<<1) ^ (h3>>1) ^ (h4<<1) ^ (h5>>1);
+            return kb.hash();
         }
     };
 

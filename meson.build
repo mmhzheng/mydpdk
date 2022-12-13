@@ -4,6 +4,6 @@ dpdk = dependency('libdpdk')
 libcuckoo = dependency('libcuckoo')
 
 incdir = include_directories('include')
-sources = files('src/main.cc', 'src/flowbook_table.cc')
+sources = files('src/main.cc', 'src/flowbook_hash.cc')
 
 executable('flowbook', sources, include_directories: incdir, dependencies: [dpdk, libcuckoo])

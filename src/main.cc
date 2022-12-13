@@ -44,8 +44,8 @@
 #include <rte_string_fns.h>
 
 #include "flowbook_hdr.h"
-#include "flowbook_table.h"
 #include "flowbook_utils.h"
+#include "flowbook_table.hpp"
 
 static volatile bool force_quit;
 
@@ -87,16 +87,16 @@ static struct rte_eth_conf port_conf = {
 struct rte_mempool * l2fwd_pktmbuf_pool = NULL;
 
 /* Per-port statistics struct */
-struct l2fwd_port_statistics {
+struct flowbook_port_statistics {
 	uint64_t tx;
 	uint64_t rx;
 	uint64_t dropped;
 } __rte_cache_aligned;
-struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
+struct flowbook_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
 
 /* A tsc-based timer responsible for triggering table reporting check */
-static uint64_t timer_period = 3; /* default period is 3 seconds */
+static uint64_t timer_period = 5; /* default period is 3 seconds */
 
 
 static flowbook_table g_flowtable(DEBUG_TABLE_SIZE);
@@ -157,8 +157,8 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 		// TODO use a real flow attr.
 		attr._byte_tot = m->pkt_len;
 		attr._packet_tot = 1;
-		attr._start_time = (uint32_t)rte_rdtsc();
-		attr._last_time  = (uint32_t)rte_rdtsc();
+		attr._start_time = rte_rdtsc();
+		attr._last_time  = rte_rdtsc();
 		g_flowtable.upsert(key, attr);
 	} else {
 		// Currently only support ipv4 packets.
@@ -166,12 +166,7 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 	}
 	m->packet_type = packet_type;
     /* do not send anymore */
-	// struct rte_eth_dev_tx_buffer *buffer;
-	// buffer = tx_buffer[portid];
-	// #define	DROP_PORT ((uint16_t)-1)
-	// rte_eth_tx_buffer(DROP_PORT, 0, buffer, m); // it can ret sent pkts.
 }
-/* >8 End of simple forward. */
 
 /* main processing loop */
 static void
@@ -184,10 +179,6 @@ flowbook_main_loop(void)
 	uint64_t prev_tsc, diff_tsc, cur_tsc, timer_tsc;
 	unsigned i, j, portid, nb_rx;
 	struct lcore_queue_conf *qconf;
-
-	/*No need to send packets*/
-	// int sent;
-	// struct rte_eth_dev_tx_buffer *buffer;
 
 	prev_tsc = 0;
 	timer_tsc = 0;
@@ -203,11 +194,9 @@ flowbook_main_loop(void)
 	RTE_LOG(INFO, FLOWBOOK, "entering main loop on lcore %u\n", lcore_id);
 
 	for (i = 0; i < qconf->n_rx_port; i++) {
-
 		portid = qconf->rx_port_list[i];
 		RTE_LOG(INFO, FLOWBOOK, " -- lcoreid=%u portid=%u\n", lcore_id,
 			portid);
-
 	}
 
 	while (!force_quit) {
@@ -339,7 +328,6 @@ flowbook_parse_args(int argc, char **argv)
 	return ret;
 }
 
-
 /* Check the link status of all ports in up to 9s, and print them finally */
 static void
 check_all_ports_link_status(uint32_t port_mask)
@@ -425,13 +413,6 @@ main(int argc, char **argv)
 	// unsigned nb_ports_in_mask = 0;
 	unsigned int nb_lcores = 0;
 	unsigned int nb_mbufs;
-
-	
-	/**
-	 * NOTE: flow table to hold counters 
-	 * NOTE: Most important structures in this project.
-	 */
-	flowbook_table flowbook();
 
 	/* Init EAL. 8< */
 	ret = rte_eal_init(argc, argv);

@@ -55,7 +55,10 @@ sudo make install
 ---- Project works.
 
 7. [TODO] Report to redis or other database (currently store as files).
-8. [TODO] Performance optimizing.
+8. [30%] Performance optimizing.
+    * [OK] Replace the STL default hash functions with a better one.
+    * [OK] Multithread reporting.
+    * [TODO] Enable multi-queue feature of NIC and scale the number of concurrent lcores.
 
 ## BUGs
 

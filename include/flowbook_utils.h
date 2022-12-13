@@ -84,9 +84,9 @@ flowbook_parse_timer_period(const char *q_arg)
 	return n;
 }
 
-/* Print out statistics on packets dropped */
+// /* Print out statistics on packets dropped */
 // static void
-// print_stats(void)
+// print_stats(uint64_t enabled_port_mask, const flowbook_port_statistics& port_statistics)
 // {
 // 	uint64_t total_packets_dropped, total_packets_tx, total_packets_rx;
 // 	unsigned portid;
@@ -105,7 +105,7 @@ flowbook_parse_timer_period(const char *q_arg)
 
 // 	for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++) {
 // 		/* skip disabled ports */
-// 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
+// 		if ((enabled_port_mask & (1 << portid)) == 0)
 // 			continue;
 // 		printf("\nStatistics for port %u ------------------------------"
 // 			   "\nPackets sent: %24"PRIu64
@@ -131,5 +131,6 @@ flowbook_parse_timer_period(const char *q_arg)
 
 // 	fflush(stdout);
 // }
+
 
 #endif
