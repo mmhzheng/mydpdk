@@ -157,8 +157,8 @@ static struct rte_eth_conf port_conf = {
 	},
 	.rx_adv_conf = {
 		.rss_conf = {
-			.rss_key = NULL,
-			.rss_hf = RTE_ETH_RSS_IP,
+			.rss_key = NULL,           // Randomly (determined by hardware)
+			.rss_hf = RTE_ETH_RSS_UDP, // use udp tuple to classify queue.  
 		},
 	},
 };
@@ -934,7 +934,7 @@ static flowbook_table g_flowtable(DEBUG_TABLE_SIZE);
  * 
 */
 static void
-flowbook_recording(struct rte_mbuf *m, unsigned portid)
+flowbook_recording(struct rte_mbuf *m, unsigned portid, unsigned queueid)
 {
 	struct rte_ether_hdr *eth_hdr;
 	uint32_t packet_type = RTE_PTYPE_UNKNOWN;
@@ -980,7 +980,7 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid)
 			packet_type |= RTE_PTYPE_L3_IPV4_EXT;
 		}
 		/* print the parsed flow */
-		RTE_LOG(INFO, FLOWBOOK, "[Port %d] %s\n", portid, key.to_string().c_str()); 
+		RTE_LOG(INFO, FLOWBOOK, "[Port %d: Queue %d] %s\n", portid, queueid, key.to_string().c_str()); 
 		// TODO use a real flow attr.
 		attr._byte_tot = m->pkt_len;
 		attr._packet_tot = 1;
@@ -1062,7 +1062,7 @@ flowbook_main_loop(void)
 				// m is just an address.
 				// the packet body has not been loaded.
 				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
-				flowbook_recording(m, portid);
+				flowbook_recording(m, portid, queueid);
 			}
 			rte_pktmbuf_free_bulk(pkts_burst, nb_rx); // Free packets in bulk.
 		}

@@ -57,9 +57,11 @@ sudo make install
 7. [OK] Performance optimizing.
     * [OK] Replace the STL default hash functions with a better one.
     * [OK] Multithread reporting.
-    * [90%] Enable multi-queue feature of NIC and scale the number of concurrent lcores.
-        * [TODO] need to check&test RSS mode.
+    * [OK] Enable multi-queue feature of NIC and scale the number of concurrent lcores.
+        * [OK] need to check&test RSS mode (use ip+udp hash mode supported by hardware).
 8. [TODO] Report to redis or other database (currently store as files).
+
+
 
 ## BUGs
 
