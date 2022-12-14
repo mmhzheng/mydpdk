@@ -31,7 +31,7 @@ dcbook_usage(const char *prgname)
 	printf("%s [EAL options] -- -p PORTMASK [-P] [-q NQ]\n"
 	       "  -p PORTMASK: hexadecimal bitmask of ports to configure\n"
 	       "  -P : Enable promiscuous mode\n"
-	       "  -q NQ: number of queue (=ports) per lcore (default is 1)\n"
+	       " --config (port,queue,lcore)[,(port,queue,lcore)]"
 	       "  -T PERIOD: statistics will be refreshed each PERIOD seconds (0 to disable, 10 default, 86400 maximum)\n",
 	       prgname);
 }
@@ -82,6 +82,61 @@ flowbook_parse_timer_period(const char *q_arg)
 		return -1;
 
 	return n;
+}
+
+
+static int
+flowbook_parse_config(const char *q_arg)
+{
+	char s[256];
+	const char *p, *p0 = q_arg;
+	char *end;
+	enum fieldnames {
+		FLD_PORT = 0,
+		FLD_QUEUE,
+		FLD_LCORE,
+		_NUM_FLD
+	};
+	unsigned long int_fld[_NUM_FLD];
+	char *str_fld[_NUM_FLD];
+	int i;
+	unsigned size;
+
+	nb_lcore_params = 0;
+
+	while ((p = strchr(p0,'(')) != NULL) {
+		++p;
+		if((p0 = strchr(p,')')) == NULL)
+			return -1;
+
+		size = p0 - p;
+		if(size >= sizeof(s))
+			return -1;
+
+		snprintf(s, sizeof(s), "%.*s", size, p);
+		if (rte_strsplit(s, sizeof(s), str_fld, _NUM_FLD, ',') != _NUM_FLD)
+			return -1;
+		for (i = 0; i < _NUM_FLD; i++){
+			errno = 0;
+			int_fld[i] = strtoul(str_fld[i], &end, 0);
+			if (errno != 0 || end == str_fld[i] || int_fld[i] > 255)
+				return -1;
+		}
+		if (nb_lcore_params >= MAX_LCORE_PARAMS) {
+			printf("exceeded max number of lcore params: %hu\n",
+				nb_lcore_params);
+			return -1;
+		}
+		lcore_params_array[nb_lcore_params].port_id =
+			(uint8_t)int_fld[FLD_PORT];
+		lcore_params_array[nb_lcore_params].queue_id =
+			(uint8_t)int_fld[FLD_QUEUE];
+		lcore_params_array[nb_lcore_params].lcore_id =
+			(uint8_t)int_fld[FLD_LCORE];
+		++nb_lcore_params;
+	}
+	lcore_params = lcore_params_array;
+	return 0;
 }
 
 // /* Print out statistics on packets dropped */

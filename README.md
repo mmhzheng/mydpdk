@@ -54,11 +54,12 @@ sudo make install
 
 ---- Project works.
 
-7. [TODO] Report to redis or other database (currently store as files).
-8. [30%] Performance optimizing.
+7. [OK] Performance optimizing.
     * [OK] Replace the STL default hash functions with a better one.
     * [OK] Multithread reporting.
-    * [TODO] Enable multi-queue feature of NIC and scale the number of concurrent lcores.
+    * [90%] Enable multi-queue feature of NIC and scale the number of concurrent lcores.
+        * [TODO] need to check&test RSS mode.
+8. [TODO] Report to redis or other database (currently store as files).
 
 ## BUGs
 
@@ -78,12 +79,13 @@ ninja -C build
 Run flowbook daemon:
 
 ```
-# 1 port
-sudo ./build/flowbook -l 0 -n 1 --vdev=net_pcap0,iface=enp130s0f0 -- -q 1 -p 1
+# 1 port with 2 queues.
+sudo ./build/flowbook -l 1,2 -n 4 --vdev=net_pcap0 -- -p 0x1 --config="(0,0,1),(0,1,2)" 
+              core_num  mem_channel_num                             port_mask  
 
-# 2 ports
-sudo  ./build/flowbook -l 0-1 -n 2 --vdev=net_pcap0,iface=enp130s0f0 --vdev=net_pcap1,iface=enp130s0f1 -- -q 1 -p 3 
-#             cores, core_num                                          queue_num_per_lcore port_mask(1111)     
+# 2 port, each with 4 queues. total 4 queues and 4 cores.
+sudo ./build/flowbook -l 1-4 -n 4 --vdev=net_pcap0,iface=enp130s0f0 -- -p 0x3 --config="(0,0,1),(0,1,2),(1,0,3),(1,1,4)" 
+              core_num  mem_channel_num                             port_mask  
 ```
 
 Send packets.
