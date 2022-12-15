@@ -1,3 +1,9 @@
+/**
+ * Define flow key and flow attribute.
+ * Author: Hao Zheng
+ * Date: 2022/12/15
+ */
+
 #ifndef _FLOWBOOK_ENTRY_H_
 #define _FLOWBOOK_ENTRY_H_
 

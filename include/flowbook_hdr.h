@@ -21,13 +21,6 @@
 extern "C" {
 #endif
 
-
-#define FLOW_BOOK_PDU_TYPE_SRT   1     // BG Table Level 1
-#define FLOW_BOOK_PDU_TYPE_MID   2	   // BG Table Level 2
-#define FLOW_BOOK_PDU_TYPE_LNG   3     // BG Table Level 3
-#define FLOW_BOOK_PDU_TYPE_ERF   201   // FG Insert Failed.
-#define FLOW_BOOK_PDU_TYPE_ERB   202   // BG Insert Failed.
-
 #define FLOW_BOOK_PDU_MAX_CTRS   100
 
 /**

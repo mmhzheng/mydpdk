@@ -1,3 +1,9 @@
+/**
+ * A better hash lib.
+ * Author: Hao Zheng
+ * Date: 2022/12/15
+ */
+
 #ifndef _FLOWBOOK_HASH_H_
 #define _FLOWBOOK_HASH_H_
 

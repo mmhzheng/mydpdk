@@ -47,7 +47,7 @@
 
 #include "flowbook_hdr.h"
 // #include "flowbook_utils.h"
-#include "flowbook_table.hpp"
+#include "flowbook_table.h"
 
 #define RTE_LOGTYPE_FLOWBOOK RTE_LOGTYPE_USER1
 
@@ -264,21 +264,15 @@ print_usage(const char *prgname)
 	fprintf(stderr, "%s [EAL options] --"
 		" -p PORTMASK"
 		" [-P]"
-		" [--lookup]"
 		" --config (port,queue,lcore)[,(port,queue,lcore)]"
 		" [--rx-queue-size NPKTS]"
 		" [--tx-queue-size NPKTS]"
-		" [--eth-dest=X,MM:MM:MM:MM:MM:MM]"
 		" [--max-pkt-len PKTLEN]"
 		" [--no-numa]"
 		" [--hash-entry-num]\n\n"
 
 		"  -p PORTMASK: Hexadecimal bitmask of ports to configure\n"
 		"  -P : Enable promiscuous mode\n"
-		"  --lookup: Select the lookup method\n"
-		"            Default: lpm\n"
-		"            Accepted: em (Exact Match), lpm (Longest Prefix Match), fib (Forwarding Information Base),\n"
-		"                      acl (Access Control List)\n"
 		"  --config (port,queue,lcore): Rx queue configuration\n"
 		"  --rx-queue-size NPKTS: Rx queue size in decimal\n"
 		"            Default: %d\n"
@@ -286,7 +280,7 @@ print_usage(const char *prgname)
 		"            Default: %d\n"
 		"  --max-pkt-len PKTLEN: maximum packet length in decimal (64-9600)\n"
 		"  --no-numa: Disable numa awareness\n"
-		"  --hash-entry-num: Specify the hash entry number in hexadecimal to be setup\n",
+		"  --table-entry-num: Specify the hash entry number in hexadecimal to be setup\n",
 		prgname, RX_DESC_DEFAULT, TX_DESC_DEFAULT);
 }
 
@@ -798,11 +792,12 @@ l3fwd_poll_resource_setup(void)
 
 		if (local_port_conf.rx_adv_conf.rss_conf.rss_hf !=
 				port_conf.rx_adv_conf.rss_conf.rss_hf) {
-			printf("Port %u modified RSS hash function based on hardware support,"
-				"requested:%#"PRIx64" configured:%#"PRIx64"\n",
-				portid,
-				port_conf.rx_adv_conf.rss_conf.rss_hf,
-				local_port_conf.rx_adv_conf.rss_conf.rss_hf);
+			// printf("Port %u modified RSS hash function based on hardware support,"
+			// 	"requested:%#"PRIx64" configured:%#"PRIx64"\n",
+			// 	portid,
+			// 	port_conf.rx_adv_conf.rss_conf.rss_hf,
+			// 	local_port_conf.rx_adv_conf.rss_conf.rss_hf);
+			printf("Port %u modified RSS hash function.", portid);
 		}
 
 		ret = rte_eth_dev_configure(portid, nb_rx_queue,
