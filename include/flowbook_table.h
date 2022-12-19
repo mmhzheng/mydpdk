@@ -64,6 +64,9 @@ private:
     FlowTable m_table_group_b[NUMBER_OF_REPORTING_THREAD];
 
     TimePoint m_last_report_time;
+
+    // Global statistics.
+    std::atomic<int> m_total_pkt;
 };
 
 #endif // _FLOW_BOOK_TABLE_

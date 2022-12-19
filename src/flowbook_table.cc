@@ -11,6 +11,7 @@ flowbook_table::flowbook_table(size_t table_size){
     }
     // The thread is safe here.
     std::atomic_init(&m_table_flag, true); // true: w a r b, flase: w b r a.
+    std::atomic_init(&m_total_pkt,  0);
     m_last_report_time = std::chrono::high_resolution_clock::now();
 }
 
@@ -30,7 +31,10 @@ void flowbook_table::upsert(flow_key key, flow_attr attr){
         in_mem_attr._byte_tot += attr._byte_tot;
         in_mem_attr._packet_tot += attr._packet_tot;
         in_mem_attr._last_time = attr._last_time;
-    }, attr);        
+        // Below attributes are only updated when inserting.
+        // in_mem_attr._start_time;
+    }, attr);
+    m_total_pkt++;        
 }
 
 /**
@@ -103,7 +107,7 @@ void flowbook_table::check_and_report(){
 
         std::ofstream logfile;
         char log_file_name[64];
-        sprintf(log_file_name, "/var/log/flow_status_%ld.log", std::chrono::duration_cast<std::chrono::seconds>(
+        sprintf(log_file_name, "log/flow_status_%ld.log", std::chrono::duration_cast<std::chrono::seconds>(
                                                 report_time.time_since_epoch()).count());
         logfile.open(log_file_name);
 
@@ -123,7 +127,7 @@ void flowbook_table::check_and_report(){
                     }// The residual writing threads post update this table is no problem.
                 }
             );
-            threadObj.join();
+            threadObj.join(); 
         }
 
         m_last_report_time = report_time;
@@ -133,12 +137,10 @@ void flowbook_table::check_and_report(){
 }
 
 flowbook_table::~flowbook_table(){
-    // TODO: report all table and release memory.
-    // auto lt = table.lock_table();
-    // for (const auto &it : lt) {
-    //     delete &it.first;
-    //     delete &it.second;
-    // }
+    std::ofstream logfile;
+    logfile.open("log/flow_status_global.log");
+    logfile << "Total Received & Processed Packets: " << m_total_pkt.load() << std::endl;
+    logfile.close();
 }
 
 #endif

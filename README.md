@@ -35,6 +35,8 @@ cd build
 cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_EXAMPLES=1 -DBUILD_TESTS=1 ..
 make all
 sudo make install
+
+
 ```
 
 ## Implementation Progress
@@ -61,8 +63,6 @@ sudo make install
         * [OK] need to check&test RSS mode (use ip+udp hash mode supported by hardware).
 8. [TODO] Report to redis or other database (currently store as files).
 
-
-
 ## BUGs
 
 1. [FIX] Wrong dst_ip.
@@ -82,8 +82,8 @@ Run flowbook daemon:
 
 ```
 # 1 port with 2 queues.
-sudo ./build/flowbook -l 1,2 -n 4 --vdev=net_pcap0 -- -p 0x1 --config="(0,0,1),(0,1,2)" 
-              core_num  mem_channel_num                             port_mask  
+sudo ./build/flowbook -l 1,2 -n 4 --vdev=net_pcap0,iface=enp130s0f0 -- -p 0x1 --config="(0,0,1),(0,1,2)" 
+                     core_num  mem_channel_num                             port_mask  
 
 # 2 port, each with 4 queues. total 4 queues and 4 cores.
 sudo ./build/flowbook -l 1-4 -n 4 --vdev=net_pcap0,iface=enp130s0f0 -- -p 0x3 --config="(0,0,1),(0,1,2),(1,0,3),(1,1,4)" 
