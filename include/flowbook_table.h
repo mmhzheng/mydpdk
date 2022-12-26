@@ -14,6 +14,9 @@
 #include <fstream>
 #include <thread>
 
+
+#include <mysql-cppconn-8/mysql/jdbc.h>
+
 #define DEFAULT_TABLE_SIZE  500000000   // 500M
 #define DEBUG_TABLE_SIZE    1024      
 

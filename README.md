@@ -36,7 +36,14 @@ cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_EXAMPLES=1 -DBUILD_TESTS=1 ..
 make all
 sudo make install
 
+--- Install Mysql
+sudo apt-get install mysql-server mysql-client  # version 8.0
 
+# https://dev.mysql.com/downloads/connector/cpp/
+# https://pkgs.org/download/mysql-community-client-plugins
+sudo dpkg -u *.deb
+
+sudo mysql -h 127.0.0.1 -uroot -proot  <test/create_db.sql
 ```
 
 ## Implementation Progress
