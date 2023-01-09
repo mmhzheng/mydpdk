@@ -1,8 +1,10 @@
-project('flowbook', 'cpp', default_options: ['cpp_std=c++11'])
+project('flowbook', 'cpp', default_options: ['cpp_std=c++17'])
 
 # dependencies
 dpdk = dependency('libdpdk')
 libcuckoo = dependency('libcuckoo')
+libpqxx = dependency('libpqxx')
+libpq = dependency('libpq')
 
 # indlude and source
 incdir = include_directories('include')
@@ -16,4 +18,4 @@ executable('flowbook',
             sources, 
             include_directories: incdir, 
             cpp_args : extra_args,
-            dependencies: [dpdk, libcuckoo])
+            dependencies: [dpdk, libcuckoo, libpqxx, libpq])

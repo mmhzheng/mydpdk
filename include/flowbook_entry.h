@@ -55,8 +55,8 @@ struct flow_key {
  * Definition for the val of a flow record.
 */
 struct flow_attr {
-    uint64_t _start_time;       // start time of a flow: only update at the init.
-    uint64_t _last_time;        // last update time (used to aging and regard as the end of a flow)
+    uint32_t _start_wid;       // start time of a flow: only update at the init.
+    uint32_t _max_wid;        // last update time (used to aging and regard as the end of a flow)
     uint16_t _packet_tot = 0;   // total number of packets of the flow
     uint32_t _byte_tot   = 0;   // total bytes of a flow
 	uint16_t _packet_max = 0;   // max pcket number in 10-us window
@@ -65,8 +65,8 @@ struct flow_attr {
     std::vector<uint16_t> _bytectrs;
     std::string to_string() const{
         char format[100];
-        sprintf(format, "FlowAttr=(start_time=%lu, last_time=%lu, total_pkt=%hu, total_byte=%u)", 
-                                 _start_time, _last_time, _packet_tot, _byte_tot);
+        sprintf(format, "FlowAttr=(start_wid=%u, last_wid=%u, total_pkt=%hu, total_byte=%u)", 
+                                 _start_wid, _max_wid, _packet_tot, _byte_tot);
         return std::string(format);
     }
 };

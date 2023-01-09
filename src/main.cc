@@ -978,9 +978,15 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid, unsigned queueid)
 		RTE_LOG(INFO, FLOWBOOK, "[Port %d: Queue %d] %s\n", portid, queueid, key.to_string().c_str()); 
 		// TODO use a real flow attr.
 		attr._byte_tot = m->pkt_len;
+		attr._byte_max = m->pkt_len;
 		attr._packet_tot = 1;
-		attr._start_time = rte_rdtsc();
-		attr._last_time  = rte_rdtsc();
+		attr._packet_max = 1;
+		attr._start_wid = (uint32_t)rte_rdtsc();
+		attr._max_wid  = 0;
+		attr._pktctrs.resize(1);
+		attr._bytectrs.resize(1);
+		attr._pktctrs[0] = 1;
+		attr._bytectrs[0] = 1;
 		g_flowtable.upsert(key, attr);
 	} else {
 		// Currently only support ipv4 packets.

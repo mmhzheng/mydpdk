@@ -2,8 +2,8 @@
  * Define flow table based on libcuckoo.
  * Author: Hao Zheng
  * Date: 2022/12/15
+ * Updated: 2023/1/9 add c++ interfaces.
  */
-
 #ifndef _FLOW_BOOK_TABLE_
 #define _FLOW_BOOK_TABLE_
 
@@ -14,13 +14,13 @@
 #include <fstream>
 #include <thread>
 
-
-#include <mysql-cppconn-8/mysql/jdbc.h>
+// postgreSQL cxx interfaces.
+#include <pqxx/pqxx>
 
 #define DEFAULT_TABLE_SIZE  500000000   // 500M
 #define DEBUG_TABLE_SIZE    1024      
 
-#define TABLE_SWITCH_COND_TIMER    30  // 10 seconds
+#define TABLE_SWITCH_COND_TIMER    15  // 10 seconds
 #define TABLE_SWITCH_COND_LOAD     0.7        
 
 #define NUMBER_OF_REPORTING_THREAD  4
@@ -65,6 +65,9 @@ private:
     // Table Partitiion. Make multiple threads concurrently report the tables.
     FlowTable m_table_group_a[NUMBER_OF_REPORTING_THREAD];
     FlowTable m_table_group_b[NUMBER_OF_REPORTING_THREAD];
+
+    // Database connection pool for data written.
+    pqxx::connection* m_db_connpool[NUMBER_OF_REPORTING_THREAD];
 
     TimePoint m_last_report_time;
 

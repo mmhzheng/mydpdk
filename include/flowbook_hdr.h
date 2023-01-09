@@ -45,8 +45,8 @@ struct flowbook_pdu {
 	rte_be32_t   byte_tot;
 	rte_be32_t   byte_max;
 
-	rte_be32_t   window_begin;
-	uint8_t      max_offset;
+	rte_be32_t   start_wid;
+	uint8_t      max_wid_index;
 
 	/* WARN, notice the counter index must <= max_offset */
 	uint8_t    pktctrs[FLOW_BOOK_PDU_MAX_CTRS];

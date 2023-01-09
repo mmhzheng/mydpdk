@@ -36,14 +36,40 @@ cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_EXAMPLES=1 -DBUILD_TESTS=1 ..
 make all
 sudo make install
 
---- Install Mysql
-sudo apt-get install mysql-server mysql-client  # version 8.0
 
-# https://dev.mysql.com/downloads/connector/cpp/
-# https://pkgs.org/download/mysql-community-client-plugins
-sudo dpkg -u *.deb
+--- Install postgreSQL
 
-sudo mysql -h 127.0.0.1 -uroot -proot  <test/create_db.sql
+# Create the file repository configuration:
+sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+
+# Import the repository signing key:
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+
+# Update the package lists:
+sudo apt-get update
+
+# Install the latest version of PostgreSQL.
+# If you want a specific version, use 'postgresql-12' or similar instead of 'postgresql':
+sudo apt-get -y install postgresql
+sudo apt-get install postgresql-12
+
+--- Install postgreSQL C++ interfaces
+
+git clone https://github.com/jtv/libpqxx.git
+git checkout 5.1.1
+./configure --prefix=/usr/local --disable-documentation
+make -j4
+sudo make install
+
+
+--- Connect to pg
+sudo -i -u postgres
+psql
+\l  查看数据库
+\d  查看数据表
+\password postgres 设置密码(postgres)
+\q  退出
+psql  -f /home/hzheng/workSpace/flowbook/test/create_db.sql
 ```
 
 ## Implementation Progress
@@ -68,7 +94,7 @@ sudo mysql -h 127.0.0.1 -uroot -proot  <test/create_db.sql
     * [OK] Multithread reporting.
     * [OK] Enable multi-queue feature of NIC and scale the number of concurrent lcores.
         * [OK] need to check&test RSS mode (use ip+udp hash mode supported by hardware).
-8. [TODO] Report to redis or other database (currently store as files).
+8. [OK] Report to redis or other database (currently store as files).
 
 ## BUGs
 
@@ -106,3 +132,51 @@ sudo ./test/sendpkt.py -p enp130s0f0 -s 10.0.0.0/24 -d 1.1.1.0/24 -n 5 -l 64
 ## Links
 
 http://doc.dpdk.org/guides/linux_gsg/build_dpdk.html
+https://github.com/jtv/libpqxx
+
+## pgxx example
+
+postgreSQL upsert example.
+
+```sql
+CREATE DATABASE dcbook_hw_test;
+
+\c dcbook_hw_test;
+
+CREATE TABLE tb_flow_info
+(
+    fid       SERIAL NOT NULL,
+    srcip     BIGINT,
+    dstip     BIGINT,
+    srcport   INT,
+    dstport   INT,
+    protocol  INT,
+    pkt_tot   INT DEFAULT 0,
+    pkt_max   INT DEFAULT 0,
+    byte_tot  INT DEFAULT 0,
+    byte_max  INT DEFAULT 0,
+    wid_begin BIGINT DEFAULT 0,
+    wid_last  INT DEFAULT 0,
+    CONSTRAINT pkey_flow_info PRIMARY KEY (srcip, dstip, srcport, dstport, protocol)
+);
+
+CREATE TABLE tb_flow_wid_counter
+(
+    fid INT,
+    wid INT,
+    pkt_count INT DEFAULT 0,
+    byte_count INT DEFAULT 0,      
+    CONSTRAINT pkey_flow_wid_counter PRIMARY KEY (fid, wid)
+);
+
+insert into tb_flow_info(srcip, dstip, srcport, dstport, protocol, 
+                            pkt_tot, pkt_max, byte_tot, byte_max, wid_begin, wid_last)
+values (1, 2, 3, 4, 5, 1, 1, 1, 1, 0, 0)
+on conflict(srcip, dstip, srcport, dstport, protocol) do update 
+set pkt_tot=tb_flow_info.pkt_tot+1, 
+    pkt_max=CASE WHEN tb_flow_info.pkt_max+1 > tb_flow_info.pkt_tot
+            THEN tb_flow_info.pkt_max+1
+            ELSE tb_flow_info.pkt_max
+            END,
+    wid_last=tb_flow_info.wid_last+1,
+```
