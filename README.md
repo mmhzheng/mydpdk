@@ -10,7 +10,7 @@ pip3 install meson
 sudo pip3 install meson
 
 --- Build DPDK
-# download dpdk-stable-20.11.1 at deps/
+# download dpdk-stable-22.11.1 at deps/
 meson setup build
 ninja -C build
 sudo ninja -C build install   # install dpdk lib to /usr/local
@@ -94,7 +94,7 @@ psql  -f /home/hzheng/workSpace/flowbook/test/create_db.sql
     * [OK] Multithread reporting.
     * [OK] Enable multi-queue feature of NIC and scale the number of concurrent lcores.
         * [OK] need to check&test RSS mode (use ip+udp hash mode supported by hardware).
-8. [OK] Report to redis or other database (currently store as files).
+8. [OK] Report to postgreSQL database.
 
 ## BUGs
 
