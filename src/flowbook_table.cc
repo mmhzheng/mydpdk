@@ -14,6 +14,7 @@ flowbook_table::flowbook_table(size_t table_size){
     std::atomic_init(&m_total_pkt,  0);
     m_last_report_time = std::chrono::high_resolution_clock::now();
 
+    #ifdef ENABLE_DB
     // Init database connection.
     try{
         for(size_t i=0; i<NUMBER_OF_PARALLEL_TABLE; ++i){
@@ -30,6 +31,7 @@ flowbook_table::flowbook_table(size_t table_size){
         std::cerr << "Error: " << e.what() << std::endl;
         exit(0);
     }
+    #endif
 }
 
 
@@ -39,18 +41,22 @@ flowbook_table::flowbook_table(size_t table_size){
 */
 void flowbook_table::upsert(flow_key key, flow_attr attr){  
     FlowTable* write_table = get_curr_write_table(key);    
-    // main update func.
-    // If not exist, insert <key, attr>
-    // Else, update the key with new attr
-    write_table->upsert(key, [&](flow_attr& in_mem_attr){
+    // Assuming write_table is a std::unordered_map with the same key type as 'key' and value type as 'flow_attr'
+    auto it = write_table->find(key);
+
+    if (it == write_table->end()) {
+        // Key does not exist, insert new element
+        write_table->insert({key, attr});
+    } else {
+        // Key exists, update the element
+        flow_attr& in_mem_attr = it->second;
         in_mem_attr._byte_max = std::max(in_mem_attr._byte_max, attr._byte_max);
         in_mem_attr._packet_max = std::max(in_mem_attr._packet_max, attr._packet_max);
         in_mem_attr._byte_tot += attr._byte_tot;
         in_mem_attr._packet_tot += attr._packet_tot;
         in_mem_attr._max_wid = attr._max_wid;
-        // Below attributes are only updated when inserting.
-    }, attr);
-    m_total_pkt++;        
+        // Handle any other attributes that need to be updated
+    }
 }
 
 /**
@@ -84,13 +90,8 @@ FlowTable* flowbook_table::get_curr_write_table(size_t table_id){
     return active_table_group + table_id;
 }
 
-/**
- * # THREAD UNSAFE # 
- * check table status and report&switch the table, if needed:
- *     a) table load is exeed a threshold.
- *     b) timer exceed.
- * switch table atomically and report the table.
-*/
+
+#ifdef ENABLE_DB
 void flowbook_table::check_and_report(){
 
     bool need_report_flag = false;
@@ -220,6 +221,8 @@ void flowbook_table::check_and_report(){
         // TODO: Print reporting statistics log here.
     }
 }
+#endif
+
 
 flowbook_table::~flowbook_table(){
     std::ofstream logfile;
@@ -227,11 +230,12 @@ flowbook_table::~flowbook_table(){
     logfile << "Total Received & Processed Packets: " << m_total_pkt.load() << std::endl;
     logfile.close();
 
+    #ifdef ENABLE_DB
     // release database connection
     for(size_t i=0; i<NUMBER_OF_PARALLEL_TABLE; ++i){
         m_db_connpool[i]->disconnect();
         std::cout <<"THREAD ID: "<< i<< ", disconect database " << m_db_connpool[i]->dbname() << "successfully!"<< std::endl;
     }
+    #endif
 }
-
 #endif

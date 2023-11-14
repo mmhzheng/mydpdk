@@ -1,10 +1,10 @@
-project('flowbook', 'cpp', default_options: ['cpp_std=c++17'])
+project('flowbook', 'cpp', default_options: ['cpp_std=c++2a'])
 
 # dependencies
-dpdk = dependency('libdpdk')
-libcuckoo = dependency('libcuckoo')
-libpqxx = dependency('libpqxx')
-libpq = dependency('libpq')
+dpdk = dependency('libdpdk', version : '== 22.11.3')
+
+# MACRO
+# add_project_arguments('-DENABLE_DB', language : ['c', 'cpp'])
 
 # indlude and source
 incdir = include_directories('include')
@@ -18,4 +18,4 @@ executable('flowbook',
             sources, 
             include_directories: incdir, 
             cpp_args : extra_args,
-            dependencies: [dpdk, libcuckoo, libpqxx, libpq])
+            dependencies: [dpdk])

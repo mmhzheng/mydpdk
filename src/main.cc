@@ -149,7 +149,7 @@ static uint16_t nb_lcore_params = sizeof(lcore_params_array_default) /
 
 static struct rte_eth_conf port_conf = {
 	.rxmode = {
-		.mq_mode = RTE_ETH_MQ_RX_RSS,
+		.mq_mode  = RTE_ETH_MQ_RX_RSS,
 		.offloads = RTE_ETH_RX_OFFLOAD_CHECKSUM,
 	},
 	.txmode = {
@@ -157,8 +157,8 @@ static struct rte_eth_conf port_conf = {
 	},
 	.rx_adv_conf = {
 		.rss_conf = {
-			.rss_key = NULL,           // Randomly (determined by hardware)
-			.rss_hf = RTE_ETH_RSS_UDP, // use udp tuple to classify queue.  
+			.rss_key = NULL,
+			.rss_hf = RTE_ETH_RSS_TCP,
 		},
 	},
 };
@@ -1041,7 +1041,9 @@ flowbook_main_loop(void)
 			if (unlikely(timer_tsc >= timer_period)) {
 				/* do this only on main core */
 				if (lcore_id == rte_get_main_lcore()) {
+					#ifdef ENABLE_DB
 					g_flowtable.check_and_report();
+					#endif
 					/* reset the timer */
 					timer_tsc = 0;
 				}

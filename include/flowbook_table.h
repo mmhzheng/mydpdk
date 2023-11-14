@@ -7,15 +7,17 @@
 #ifndef _FLOW_BOOK_TABLE_
 #define _FLOW_BOOK_TABLE_
 
-#include <libcuckoo/cuckoohash_map.hh>
 #include "flowbook_entry.h"
 #include <atomic>
 #include <chrono>
 #include <fstream>
 #include <thread>
-
+#include <unordered_map>
 // postgreSQL cxx interfaces.
+
+#ifdef ENABLE_DB
 #include <pqxx/pqxx>
+#endif
 
 #define DEFAULT_TABLE_SIZE  500000000   // 500M
 #define DEBUG_TABLE_SIZE    1024      
@@ -26,7 +28,7 @@
 #define NUMBER_OF_REPORTING_THREAD  4
 #define NUMBER_OF_PARALLEL_TABLE    NUMBER_OF_REPORTING_THREAD
 
-using FlowTable = libcuckoo::cuckoohash_map<flow_key, flow_attr>;
+using FlowTable = std::unordered_map<flow_key, flow_attr>;
 using TimePoint = std::chrono::_V2::system_clock::time_point;
 
 class flowbook_table {
@@ -49,6 +51,7 @@ public:
     FlowTable* get_curr_write_table(const flow_key& key);
     FlowTable* get_curr_write_table(size_t table_id);
 
+    #ifdef ENABLE_DB 
     /**
      * # THREAD UNSAFE # 
      * check table status and report&switch the table, if needed:
@@ -58,6 +61,7 @@ public:
      * TODO: add multithread support.
     */
     void check_and_report();
+    #endif
 
 private:
     std::atomic_bool m_table_flag;
@@ -66,8 +70,10 @@ private:
     FlowTable m_table_group_a[NUMBER_OF_REPORTING_THREAD];
     FlowTable m_table_group_b[NUMBER_OF_REPORTING_THREAD];
 
+    #ifdef ENABLE_DB
     // Database connection pool for data written.
     pqxx::connection* m_db_connpool[NUMBER_OF_REPORTING_THREAD];
+    #endif 
 
     TimePoint m_last_report_time;
 
