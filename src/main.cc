@@ -2,6 +2,7 @@
  * Copyright(c) 2010-2021 Intel Corporation
  */
 
+#include <atomic>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -45,9 +46,11 @@
 #include <cmdline_parse.h>
 #include <cmdline_parse_etheraddr.h>
 
+#include "flowbook_entry.h"
 #include "flowbook_hdr.h"
 // #include "flowbook_utils.h"
 #include "flowbook_table.h"
+#include "utrace.h"
 
 #define RTE_LOGTYPE_FLOWBOOK RTE_LOGTYPE_USER1
 
@@ -166,6 +169,13 @@ static struct rte_eth_conf port_conf = {
 uint32_t max_pkt_len;
 
 static struct rte_mempool *pktmbuf_pool[RTE_MAX_ETHPORTS][NB_SOCKETS];
+
+/* A tsc-based timer responsible for triggering table reporting check */
+static uint64_t timer_period = 5; /* default period is 3 seconds */
+static flowbook_table g_flowtable(0);
+static std::vector<FlowArray> g_flowarray;
+static int g_lcorenum = 0;
+static std::atomic<int> g_pktcnt;
 
 static int
 check_lcore_params(void)
@@ -382,6 +392,7 @@ parse_config(const char *q_arg)
 		++nb_lcore_params;
 	}
 	lcore_params = lcore_params_array;
+	g_lcorenum = nb_lcore_params;
 	return 0;
 }
 
@@ -917,11 +928,6 @@ l3fwd_poll_resource_setup(void)
 	}
 }
 
-/* A tsc-based timer responsible for triggering table reporting check */
-static uint64_t timer_period = 5; /* default period is 3 seconds */
-
-
-static flowbook_table g_flowtable(DEBUG_TABLE_SIZE);
 
 /**
  * @m: packet mbuf ref.
@@ -936,13 +942,13 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid, unsigned queueid)
 	uint16_t ether_type;
 	void *l3;
 	void *l4;
+	void *l5;
 	int hdr_len;
 	struct rte_ipv4_hdr *ipv4_hdr;
 	struct rte_tcp_hdr *tcp_hdr;
 	struct rte_udp_hdr *udp_hdr;
 	
-	flow_key  key;
-	flow_attr attr;
+	FlowData fdata;
 
 	eth_hdr = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
 	// Note that the field is big ending (be).
@@ -952,42 +958,36 @@ flowbook_recording(struct rte_mbuf *m, unsigned portid, unsigned queueid)
 	if ( ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4) ) {
 		ipv4_hdr = (struct rte_ipv4_hdr *)l3;
 		hdr_len = rte_ipv4_hdr_len(ipv4_hdr);
-		key._srcip = ipv4_hdr->src_addr;
-		key._dstip = ipv4_hdr->dst_addr;
+		fdata.flowkey._srcip = ipv4_hdr->src_addr;
+		fdata.flowkey._dstip = ipv4_hdr->dst_addr;
 		if ( hdr_len == sizeof(struct rte_ipv4_hdr) ){
 			packet_type |= RTE_PTYPE_L3_IPV4;
 			l4 = (uint8_t *)ipv4_hdr + hdr_len;
-			key._protocol = ipv4_hdr->next_proto_id;
-			if ( key._protocol == IPPROTO_TCP ){
+			fdata.flowkey._protocol = ipv4_hdr->next_proto_id;
+			fdata.pkt_len = ipv4_hdr->total_length + 18;
+			if ( fdata.flowkey._protocol == IPPROTO_TCP ){
 				packet_type |= RTE_PTYPE_L4_TCP;
 				tcp_hdr = (struct rte_tcp_hdr *) l4;
-				key._srcport = rte_be_to_cpu_16(tcp_hdr->src_port);
-				key._dstport = rte_be_to_cpu_16(tcp_hdr->dst_port);
+				fdata.flowkey._srcport = rte_be_to_cpu_16(tcp_hdr->src_port);
+				fdata.flowkey._dstport = rte_be_to_cpu_16(tcp_hdr->dst_port);
+				
+				l5 = (uint8_t *)tcp_hdr + sizeof(struct rte_tcp_hdr);
+				struct utrace_pdu* udata = ( utrace_pdu* ) l5;
+				fdata.timestamp = rte_be_to_cpu_32(udata->timestamp);
+				fdata.queue_len = rte_be_to_cpu_32(udata->queue_len);
+				g_flowarray[rte_lcore_id()].addElement(fdata);
+				g_pktcnt += 1;
 			}
-			else if ( key._protocol == IPPROTO_UDP )
+			else if ( fdata.flowkey._protocol == IPPROTO_UDP )
 			{
 				packet_type |= RTE_PTYPE_L4_UDP;
 				udp_hdr = (struct rte_udp_hdr *) l4;
-				key._srcport = rte_be_to_cpu_16(udp_hdr->src_port);
-				key._dstport = rte_be_to_cpu_16(udp_hdr->dst_port);
+				fdata.flowkey._srcport = rte_be_to_cpu_16(udp_hdr->src_port);
+				fdata.flowkey._dstport = rte_be_to_cpu_16(udp_hdr->dst_port);
 			}
 		} else {
 			packet_type |= RTE_PTYPE_L3_IPV4_EXT;
 		}
-		/* print the parsed flow */
-		RTE_LOG(INFO, FLOWBOOK, "[Port %d: Queue %d] %s\n", portid, queueid, key.to_string().c_str()); 
-		// TODO use a real flow attr.
-		attr._byte_tot = m->pkt_len;
-		attr._byte_max = m->pkt_len;
-		attr._packet_tot = 1;
-		attr._packet_max = 1;
-		attr._start_wid = (uint32_t)rte_rdtsc();
-		attr._max_wid  = 0;
-		attr._pktctrs.resize(1);
-		attr._bytectrs.resize(1);
-		attr._pktctrs[0] = 1;
-		attr._bytectrs[0] = 1;
-		g_flowtable.upsert(key, attr);
 	} else {
 		// Currently only support ipv4 packets.
 		packet_type |= RTE_PTYPE_L3_IPV6;
@@ -1142,6 +1142,8 @@ main(int argc, char **argv)
 	memset(&port_statistics, 0, sizeof(port_statistics));
 	check_all_ports_link_status(enabled_port_mask);
 
+	g_flowarray.resize(g_lcorenum, FlowArray(100000000));
+	g_pktcnt = 0;
 
     /**************************************************************
 	 *  Setup main packets processing threads.
@@ -1155,9 +1157,29 @@ main(int argc, char **argv)
 	 *  NOTE: should not change these codes.
 	 *************************************************************/
     rte_eal_mp_wait_lcore();
+	// Clear up.
+	FlowArray totalarr(0);
+	for(int l=0; l<g_lcorenum; ++l){
+		totalarr = FlowArray::mergeAndSort(totalarr, g_flowarray[l]);
+	}
+	totalarr.saveToFile("TotalPkt.csv");
+
     RTE_ETH_FOREACH_DEV(portid) {
         if ((enabled_port_mask & (1 << portid)) == 0)
             continue;
+		printf("=========================================================");
+		rte_eth_stats stats;
+		if (rte_eth_stats_get(portid, &stats) == 0) {
+			printf("Statistics for port %u:\n", portid);
+			printf(" - Packets received: %lu\n", stats.ipackets);
+			printf(" - Packets transmitted: %lu\n", stats.opackets);
+			printf(" - Packets missed by hardware: %lu\n", stats.imissed);
+			printf(" - Error packets received: %lu\n", stats.ierrors);
+			printf(" - Error packets transmitted: %lu\n", stats.oerrors);
+			// ... 其他统计信息
+		} else {
+			printf("Failed to get statistics for port %u\n", portid);
+		}
         printf("Closing port %d...", portid);
         ret = rte_eth_dev_stop(portid);
         if (ret != 0)

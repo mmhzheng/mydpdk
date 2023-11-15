@@ -121,6 +121,9 @@ sudo ./build/flowbook -l 1,2 -n 4 --vdev=net_pcap0,iface=enp130s0f0 -- -p 0x1 --
 # 2 port, each with 4 queues. total 4 queues and 4 cores.
 sudo ./build/flowbook -l 1-4 -n 4 --vdev=net_pcap0,iface=enp130s0f0 -- -p 0x3 --config="(0,0,1),(0,1,2),(1,0,3),(1,1,4)" 
               core_num  mem_channel_num                             port_mask  
+
+sudo ./build/flowbook -l 1,3,5,7 -n 4 --vdev=net_pcap0,iface=enp130s0 -- -p 0x1 --config="(0,0,1),(0,1,3),(0,2,5),(0,3,7)" 
+
 ```
 
 Send packets.

@@ -13,6 +13,7 @@
  * UDP-related defines
  */
 
+#include <generic/rte_byteorder.h>
 #include <stdint.h>
 
 #include <rte_byteorder.h>
@@ -30,6 +31,11 @@ struct flowbook_header {
 	uint8_t np_id; 
 	uint8_t pdu_num; 
 } __rte_packed;
+
+struct utrace_pdu {
+	rte_be32_t timestamp;
+	rte_be32_t queue_len;
+}__rte_packed;
 
 struct flowbook_pdu {
 	/* flow key */
